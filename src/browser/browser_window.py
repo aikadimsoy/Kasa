@@ -1389,29 +1389,67 @@ def _make_navigate_once(load_url, on_error=None):
     return navigate
 
 
-def _bootstrap_privacy_navigation(core, navigate, real_url, early_js, on_fallback=None):
+def _bootstrap_privacy_navigation(core, navigate, real_url, early_js):
     """B1 cekirdek DEGISMEZI (ilke-7): erken privacy scripti GERCEK navigasyondan ONCE kaydedilsin.
     Sira: (1) tracking prevention, (2) AddScript(early_js) -> task, (3) task TAMAMLANINCA (kayit
-    dokuman-oncesi etkin) -> navigate(real_url). 'core' CLR-bagimsiz arayuz saglar:
-      core.set_tracking(level); core.add_script(js)->task; core.when_ready(task, cb).
+    dokuman-oncesi etkin) -> navigate(real_url). 'core': set_tracking/add_script/when_ready arayuzu.
     Navigate YALNIZ when_ready callback'inde; asla eager degil -> yaris TANIM GEREGI yok
     (zamanlamaya degil, WebView2'nin kayit-tamamlama garantisine dayanir).
-    FAIL-SAFE + FAIL-AUDIBLE: bir adim patlarsa on_fallback(reason) (denetlenebilir olay) +
-    navigate(real_url) (taban=bugunku davranis, ama sessiz degil)."""
+    FAIL-OPEN YOK: bir adim patlarsa EXCEPTION YUKARI verilir (navigate ETMEZ). Cold ilk-nav
+    fail-closed politikasi (bkz _inject_with_retry) enjeksiyonsuz gercek navigasyonu engeller."""
+    core.set_tracking(1)
+    task = core.add_script(early_js)
+    core.when_ready(task, lambda: navigate(real_url))
+
+
+def _watchdog_action(navigated, registered):
+    """Watchdog karari (saf/test edilebilir), FAIL-CLOSED uyumlu:
+      navigated True                   -> 'noop'       (zaten gidildi)
+      not navigated + registered True  -> 'navigate'   (kayit VAR, sadece nav gecikti -> guvenli)
+      not navigated + registered False -> 'failclosed' (kayit YOK -> enjeksiyonsuz real'e GITME).
+    Boylece watchdog fail-closed dalini fail-OPEN'a cevirmez (acik bir kat asagida geri uretilmez)."""
+    if navigated:
+        return "noop"
+    return "navigate" if registered else "failclosed"
+
+
+def _inject_with_retry(get_core, register, show_error, max_attempts=3):
+    """Cold ilk-nav FAIL-CLOSED (owner karari, 2 sartla): (b) NAVIGASYONU degil ENJEKSIYONU tekrar
+    dener -> her deneme ayri korunmasiz cold-first istek uretmez; gercek origin'e ancak kayit
+    dispatch edilince gidilir. Tum denemeler basarisizsa show_error() -> (a) INERT hata (localhost/
+    navigasyon YOK). Doner: True=kayit dispatch edildi, False=fail-closed (enjeksiyonsuz gidilmedi)."""
+    for _ in range(max_attempts):
+        try:
+            core = get_core()
+        except Exception:
+            core = None
+        if core is not None:
+            try:
+                register(core)
+                return True
+            except Exception:
+                pass  # kayit patladi -> NAVIGATE ETME, enjeksiyonu tekrar dene
+    show_error()
+    return False
+
+
+# FAIL-CLOSED hata gorunumu: MEVCUT inert html= dokumaninin uzerine JS ile mesaj basar.
+# Navigasyon/localhost/data: YOK -> hata yolu kapatilan localhost sunucusunu geri uyandirmaz (kosul-a).
+_INERT_ERROR_JS = (
+    "document.title='KASA koruma dogrulanamadi';"
+    "document.body.innerHTML='<div style=\"font:16px system-ui;padding:40px;color:#b00\">"
+    "KASA gizlilik korumasi bu oturumda dogrulanamadi; guvenlik icin sayfa ACILMADI "
+    "(enjeksiyonsuz ilk istek engellendi). Pencereyi kapatip yeniden deneyin.</div>';"
+)
+
+
+def _show_inert_error(win):
+    """Cold fail-closed: mevcut inert dokuman uzerine hata mesaji (evaluate_js). Gercek origin'e
+    enjeksiyonsuz GIDILMEDIGI icin sizinti olmaz; localhost sunucusu da uyandirilmaz."""
     try:
-        core.set_tracking(1)
-        task = core.add_script(early_js)
-        core.when_ready(task, lambda: navigate(real_url))
+        win.evaluate_js(_INERT_ERROR_JS)
     except Exception as e:
-        if on_fallback:
-            on_fallback(f"bootstrap_exception:{e}")
-        navigate(real_url)
-
-
-def _watchdog_should_navigate(navigated):
-    """Watchdog karari (saf/test edilebilir): navigasyon HIC gerceklesmediyse (bootstrap loaded
-    fire etmedi ya da navigate cagirmadi) fallback sart. Aksi halde dokunma."""
-    return not navigated
+        print(f"[KASA] inert hata gosterimi: {e}")
 
 
 class _WinformsCore:
@@ -1444,36 +1482,39 @@ class _WinformsCore:
 
 
 def _bootstrap_on_blank(win, real_url, navigate, registered):
-    """Bootstrap (inline-html) turunda CoreWebView2'yi al, erken privacy'yi KAYDET, kayit
-    tamamlaninca gercek url'e git. Instance/core alinamazsa FAIL-SAFE + FAIL-AUDIBLE: denetlenebilir
-    olay yaz + dogrudan navigate (taban=bugunku davranis, ama sessiz guvenlik-dusumu degil)."""
-    try:
-        from webview.platforms.winforms import BrowserView
-        from System import Action
+    """Bootstrap (inert html=) turunda erken privacy'yi KAYDEDIP kayit tamamlaninca gercek url'e
+    gider. Cold ilk-nav FAIL-CLOSED: CoreWebView2 hazir olana kadar (retry) beklenir; kayit
+    dispatch edilene kadar gercek origin'e GIDILMEZ; hicbir deneme tutmazsa INERT hata gosterilir
+    (localhost/navigasyon YOK). Async kayit-hatasi durumunda registered False kalir -> watchdog
+    fail-closed'i uygular. Iki script tek early_js'de (prelude ONCE, privacy SONRA -> tek Task)."""
+    early_js = _level_prelude_js() + "\n;\n" + _PRIVACY_JS
 
+    def _get_core():
+        from webview.platforms.winforms import BrowserView  # CLR; hazir degilse retry
         instance = BrowserView.instances.get(win.uid)
         if instance is None:
-            _audit_b1("bootstrap_no_instance")
-            navigate(real_url)
-            return
+            raise RuntimeError("BrowserView instance hazir degil")
+        core = getattr(instance.browser.webview, "CoreWebView2", None)
+        if core is None:
+            raise RuntimeError("CoreWebView2 hazir degil")
+        return instance, core
 
-        def inner():
-            core = getattr(instance.browser.webview, "CoreWebView2", None)
-            if core is None:
-                _audit_b1("bootstrap_no_core")
-                navigate(real_url)
-                return
-            # Iki script tek early_js'de: prelude (__KASA_LEVEL__) ONCE, privacy SONRA -> tek Task.
-            early_js = _level_prelude_js() + "\n;\n" + _PRIVACY_JS
-            _bootstrap_privacy_navigation(
-                _WinformsCore(core), navigate, real_url, early_js, on_fallback=_audit_b1)
-            registered["done"] = True  # erken kayit yapildi -> taban tekrar gerekmez
-            print("[KASA] B1 bootstrap: erken enjeksiyon kaydedildi (deterministik), navigasyon zincirlendi.")
+    def _register(ic):
+        instance, core = ic
+        from System import Action
 
-        instance.BeginInvoke(Action(inner))
-    except Exception as e:
-        _audit_b1(f"bootstrap_exception:{e}")
-        navigate(real_url)
+        def _do():
+            # Kayit patlarsa registered False kalir + navigate cagrilmaz -> watchdog fail-closed.
+            _bootstrap_privacy_navigation(_WinformsCore(core), navigate, real_url, early_js)
+            registered["done"] = True
+
+        instance.BeginInvoke(Action(_do))
+
+    ok = _inject_with_retry(
+        _get_core, _register,
+        lambda: (_audit_b1("cold_failclosed_no_injection"), _show_inert_error(win)))
+    if ok:
+        print("[KASA] B1 bootstrap: kayit dispatch edildi (deterministik), navigasyon zincirlenecek.")
 
 
 def open_browser(url: str = "https://lite.duckduckgo.com/lite"):
@@ -1502,18 +1543,20 @@ def open_browser(url: str = "https://lite.duckduckgo.com/lite"):
     navigate = _make_navigate_once(win.load_url, on_error=_audit_b1)
     _registered = {"done": False}
 
-    # Availability watchdog (#2b): bootstrap 'loaded' hic fire etmezse ~3s icinde yine de gercek
-    # url'e git. navigate idempotent -> bootstrap ile cakisirsa zararsiz. Bu, yeni tasarimin
-    # bugunkunden KOTU olabilecegi tek yolu (asili pencere) kapatir. Erken kayit HIC yapilmadan
-    # navigasyon = gercek guvenlik-dusumu -> FAIL-AUDIBLE olay yaz.
+    # Availability watchdog (#2b) + FAIL-CLOSED uyumu: ~3s icinde navigasyon olmadiysa KARAR
+    # _watchdog_action'a birakilir. Kayit VARSA guvenli taban navigasyon; kayit YOKSA gercek
+    # origin'e enjeksiyonsuz GITMEZ (fail-closed): inert hata + denetlenebilir olay. Boylece
+    # watchdog, cold fail-closed'i bir kat asagida fail-OPEN'a cevirmez.
     def _watchdog():
         try:
             time.sleep(3.0)
-            if _watchdog_should_navigate(navigate.done()):
-                if not _registered["done"]:
-                    _audit_b1("watchdog_no_registration")
-                print("[KASA] B1 watchdog: bootstrap loaded gelmedi -> taban navigasyon.")
+            action = _watchdog_action(navigate.done(), _registered["done"])
+            if action == "navigate":
+                print("[KASA] B1 watchdog: kayit var, nav gecikti -> navigasyon.")
                 navigate(real_url)
+            elif action == "failclosed":
+                _audit_b1("watchdog_failclosed_no_registration")
+                _show_inert_error(win)  # enjeksiyonsuz real'e GITME
         except Exception:
             pass
     threading.Thread(target=_watchdog, daemon=True).start()

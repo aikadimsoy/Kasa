@@ -80,3 +80,45 @@ def test_seal_lists_every_red_signal():
     status, reasons = b1_seal.seal_decision(False, False, False)
     assert status == "NOT_SEALED"
     assert set(reasons) == {"cold_pass1_leak", "rogue_localhost_server", "watchdog_timing"}
+
+
+# ---- NEGATIF KONTROL: unknown != PASS (ilke-11, muhur katmaninda) ----
+# 'Mutlu yol' (uc yesil -> SEALED) yeterli DEGIL; asil risk 'olculemedi -> sahte-yesil'.
+
+def test_seal_refused_when_signal_unmeasured_none():
+    # Bir sinyal OLCULEMEDI (None) -> SEALED OLMAMALI, 'unmeasured' sebebi bildirilmeli.
+    status, reasons = b1_seal.seal_decision(None, True, True)
+    assert status == "NOT_SEALED" and "cold_pass1_unmeasured" in reasons
+
+
+def test_seal_distinguishes_measured_red_from_unmeasured():
+    # olculdu-kirmizi (False) ve olculemedi (None) AYRI raporlanir.
+    status, reasons = b1_seal.seal_decision(False, None, True)
+    assert status == "NOT_SEALED"
+    assert "cold_pass1_leak" in reasons          # olculdu-kirmizi
+    assert "rogue_probe_unmeasured" in reasons    # olculemedi
+
+
+def test_seal_requires_strict_true_no_truthy_coercion():
+    # Truthy-ama-True-degil (1, 'yes') PASS SAYILMAZ -> sahte-yesil deligi kapali.
+    for bad in (1, "yes", [1], object()):
+        status, reasons = b1_seal.seal_decision(bad, True, True)
+        assert status == "NOT_SEALED", f"{bad!r} yanlislikla SEALED"
+        assert "cold_pass1_unmeasured" in reasons
+
+
+def test_rogue_signal_is_none_when_netstat_fails(monkeypatch):
+    # AMPIRIK negatif kontrol: port-tarama patlarsa sinyal None (sahte-'temiz' DEGIL).
+    def boom(*a, **k):
+        raise RuntimeError("netstat patladi")
+    monkeypatch.setattr(b1_seal, "_list_listening_ports", boom)
+    assert b1_seal.rogue_listener_signal() is None
+
+
+def test_rogue_signal_none_feeds_not_sealed(monkeypatch):
+    # Uctan uca: netstat patlar -> no_rogue None -> seal_decision NOT_SEALED (unmeasured).
+    monkeypatch.setattr(b1_seal, "_list_listening_ports",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    no_rogue = b1_seal.rogue_listener_signal()
+    status, reasons = b1_seal.seal_decision(True, no_rogue, True)
+    assert status == "NOT_SEALED" and "rogue_probe_unmeasured" in reasons
