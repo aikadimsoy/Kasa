@@ -1,7 +1,35 @@
 import subprocess
 import sys
 import json
+import os
 import importlib.util
+
+
+# ===== L1 secret allowlist suzgeci (test-edilebilir; false-PASS avi icin ayri fonksiyon) =====
+def load_allowlist(path=None):
+    """secret_allowlist.json -> {(normalize_path, type)} kumesi. Okunamazsa BOS (fail-closed)."""
+    path = path or os.path.join(os.path.dirname(__file__), "..", "secret_allowlist.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {(e["path"].replace("\\", "/"), e["type"]) for e in json.load(f)["allowlist"]}
+    except Exception:
+        return set()
+
+
+def filter_secrets(results_dict, allow):
+    """raw detect-secrets results -> (real_bulgular_listesi, bastirilan_sayi).
+    (path,type) allowlist'te ise bastir; degilse 'real'. bearer_token allowlist'te olmadigindan
+    HER ZAMAN real'de kalir -> gizlenemez (test bunu kanitlar)."""
+    real, suppressed = [], 0
+    for path, items in results_dict.items():
+        npath = path.replace("\\", "/")
+        for it in items:
+            if (npath, it["type"]) in allow:
+                suppressed += 1
+            else:
+                real.append(f"{npath}:{it.get('line_number', '?')} [{it['type']}]")
+    return real, suppressed
+
 
 def run():
     results = []
@@ -177,23 +205,42 @@ def run():
             data = process.stdout
             try:
                 results_data = json.loads(data)
-                total_findings = sum(len(v) for v in results_data["results"].values())
-                
-                status = "PASS"
-                evidence = f"Total findings: {total_findings}"
-                if total_findings > 0:
+
+                # Controller L1: raw ciktiyi DENETLENMIS allowlist ile suz (secret_allowlist.json).
+                # Amac: fixture/false-positive gurultuyu GEREKCELI dusup gercek secret'i (bearer_token)
+                # yuzeye cikarmak. bearer_token allowlist'te DEGIL -> FAIL KALIR (durustluk; ".bak gizleme" degil).
+                allow_path = os.path.join(os.path.dirname(__file__), "..", "secret_allowlist.json")
+                try:
+                    with open(allow_path, encoding="utf-8") as _af:
+                        allow = {(e["path"].replace("\\", "/"), e["type"]) for e in json.load(_af)["allowlist"]}
+                except Exception:
+                    allow = set()  # allowlist okunamazsa HICBIR sey bastirma (fail-closed: daha cok FAIL)
+
+                real, suppressed = [], 0
+                for path, items in results_data["results"].items():
+                    npath = path.replace("\\", "/")
+                    for it in items:
+                        if (npath, it["type"]) in allow:
+                            suppressed += 1
+                        else:
+                            real.append(f"{npath}:{it.get('line_number', '?')} [{it['type']}]")
+
+                if not real:
+                    status = "PASS"
+                    evidence = f"0 denetlenmemis secret ({suppressed} allowlist'li bastirildi; gerekce: secret_allowlist.json)"
+                else:
                     status = "FAIL"
-                    first_file = next(iter(results_data["results"]))
-                    evidence += f"; First file with secrets: {first_file}"
-                
+                    evidence = (f"{len(real)} denetlenmemis secret ({suppressed} allowlist'li bastirildi): "
+                                + "; ".join(real[:3]))
+
                 result = {
                     "id": "SCAN-SECRETS",
                     "category": "scan",
-                    "title": "Secret Detection with Detect-Secrets",
+                    "title": "Secret Detection with Detect-Secrets (allowlist-suzulmus)",
                     "status": status,
                     "severity": "critical",
                     "evidence": evidence,
-                    "remediation": "Review filesystem findings"
+                    "remediation": "bearer_token: owner-only ACL uygulandi; kalan -> rotasyon + DPAPI-wrap/at-rest (owner-gated). Yeni bulgu gercekse kaynaktan kaldir, fixture/FP ise gerekceyle secret_allowlist.json'a ekle."
                 }
                 results.append(result)
             except json.JSONDecodeError:
@@ -233,7 +280,6 @@ def run():
     # Controller: KALICI HIJYEN kontrolu — src/ icinde .bak/yedek birikimi -> WARN.
     # Tek-seferlik 'mv' degil; benchmark her kosuda denetler (aksi halde ~6 ayda yine 18 tane birikir).
     try:
-        import os
         bak_files = []
         for root, _dirs, files in os.walk("d:/kasa/src"):
             for fn in files:

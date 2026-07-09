@@ -1,3 +1,7 @@
+# Secret'lar — bearer_token kasa.toml'da duz metin; git'te izlenmez (owner-only ACL + L1 rotasyon).
+# Ornek/sablon kasa.toml.example izlenebilir.
+kasa.toml
+
 # Python
 __pycache__/
 *.pyc
