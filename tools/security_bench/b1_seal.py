@@ -102,6 +102,30 @@ def seal_decision(cold_pass1_clean, no_rogue_listener, watchdog_ok):
     return ("SEALED" if not reasons else "NOT_SEALED"), reasons
 
 
+def b1_cold_from_meta(leaks):
+    """B1 muhru JS-KATMAN (webgl/timezone/platform) cold-tutarliligini olcer; accept_language
+    (B3, owner-gated HTTP-katman) AYRI raporlanir ve B1 sinyalini BATIRMAZ. Aksi halde muhur,
+    verilmemis bir owner kararina (B3) transitif baglanir: B3 kapaliyken accept_language sizar ->
+    cold=False -> mühür asla dusmez. Doner: (b1_clean, b3_open)."""
+    js_layer = [x for x in leaks if x != "accept_language"]
+    return (js_layer == []), ("accept_language" in leaks)
+
+
+def cold_signal_from_runs(on_clean, off_leaked):
+    """Cold sinyali INSTRUMENT-KALIBRELI (olcum aletinin kendi negatif kontrolu): injection-OFF
+    baseline SIZMALI (alet gercekten sizinti goruyor), injection-ON temiz OLMALI.
+      off_leaked False -> alet KOR (baseline bile sizmadi; olcum scripti ters/bozuk olabilir) ->
+                          None (olcum GECERSIZ, unknown != PASS) -> muhur dusmez
+      on_clean/off_leaked None -> None (olculemedi)
+      on_clean True + off_leaked True -> True
+      on_clean False -> False (ON kosum B1-katmaninda sizdi)."""
+    if on_clean is None or off_leaked is None:
+        return None
+    if not off_leaked:
+        return None  # alet kor -> gecersiz olcum
+    return bool(on_clean)
+
+
 def write_seal(signals, status, reasons):
     """Muhur artefakti (durum + ham sinyaller + damga). SEALED ise B1 kanitlanmis demektir."""
     rec = {
@@ -119,52 +143,83 @@ def write_seal(signals, status, reasons):
 
 # ---- Canli orkestrasyon (KAPI-2: gercek WebView2 + owner-mevcudiyeti; burada KOSULMAZ) ----
 
+def _cold_launch(bg, timeout_s, injection_off=False):
+    """Bir cold launch -> (b1_clean, b3_open, has_records). injection_off=True: KASA_PRIVACY_LEVEL=off
+    (baseline; alet kalibrasyonu icin JS-katman SIZMALI). B1 = JS-katman (webgl/tz/platform),
+    B3(accept_language) AYRI. Kayit yoksa (WebView2 kosmadi) -> (None, None, False)."""
+    prev = os.environ.get("KASA_PRIVACY_LEVEL")
+    if injection_off:
+        os.environ["KASA_PRIVACY_LEVEL"] = "off"
+    try:
+        adv = bg.start_adversary()
+        try:
+            bg.launch_kasa(timeout_s)
+        finally:
+            adv.stop()
+    finally:
+        if injection_off:
+            os.environ.pop("KASA_PRIVACY_LEVEL", None) if prev is None else os.environ.__setitem__("KASA_PRIVACY_LEVEL", prev)
+    records = bg.read_captures()
+    if not records:
+        return None, None, False
+    try:
+        _ok, meta = bg.evaluate_cold(records)
+        b1_clean, b3_open = b1_cold_from_meta(meta.get("leaks", []))
+        return b1_clean, b3_open, True
+    except Exception:
+        return None, None, True
+
+
 def run_live_seal(timeout_s=18):
-    """CANLI: tarayiciyi cold acar, uc sinyali GERCEK motordan toplar, seal_decision uygular ve
-    SEALED ise muhru (B1_SEAL.json + 'L3-B1-sealed' tag) DUSURUR. Owner-mevcudiyeti ister; GUI acar.
-    NOT: bu fonksiyonun kendisi mock'lanamaz -> yesil ancak GERCEK cold-kosumdan gelir."""
+    """CANLI (owner-mevcudiyeti, GUI acar): sinyalleri GERCEK motordan toplar, seal_decision uygular,
+    SEALED ise muhru (B1_SEAL.json + 'L3-B1-sealed') DUSURUR. Mock'lanamaz -> yesil ancak gercek
+    kosumdan. Iki pass: (1) injection-ON + port-probe, (2) injection-OFF baseline (alet kalibrasyonu:
+    SIZMALI). B3(accept_language) B1'i batirmaz; ayri raporlanir."""
     sys.path.insert(0, REPO + "/_orch/loop")
     import browser_gate as bg
-
+    import threading
     t0 = time.time()
+
+    # --- Pass 1: injection ON + launch sirasinda port-probe ---
+    sigp = {"no_rogue": None}
+
+    def _probe():
+        time.sleep(3.0)
+        sigp["no_rogue"] = rogue_listener_signal()
+
     adv = bg.start_adversary()
-    no_rogue = None
     try:
-        # launch sirasinda port-probe: d:/kasa servis eden dinleyici var mi? (True/False/None)
-        import threading
-        sig = {"no_rogue": None}
-
-        def _probe():
-            time.sleep(3.0)  # WebView2 + (varsa) sunucu ayaga kalksin
-            sig["no_rogue"] = rogue_listener_signal()
-
         pt = threading.Thread(target=_probe, daemon=True)
         pt.start()
         bg.launch_kasa(timeout_s)
         pt.join(timeout=2)
-        no_rogue = sig["no_rogue"]
     finally:
         adv.stop()
-
-    # cold + watchdog: OLCULEMEDI durumlari None (ilke-11: unknown != PASS, sahte-yesil olmaz).
-    cold, cold_meta, watchdog_ok = None, {}, None
-    try:
-        records = bg.read_captures()
-    except Exception as e:
-        records, cold_meta = None, {"error": f"read_captures:{e}"}
-    if records:
+    no_rogue = sigp["no_rogue"]
+    on_records = bg.read_captures()
+    if on_records:
         try:
-            cold_ok, cold_meta = bg.evaluate_cold(records)
-            cold = bool(cold_ok)
+            _ok, on_meta = bg.evaluate_cold(on_records)
+            b1_on_clean, b3_open = b1_cold_from_meta(on_meta.get("leaks", []))
         except Exception as e:
-            cold, cold_meta = None, {"error": f"evaluate_cold:{e}"}
-        watchdog_ok = True  # kayit geldi -> ilk-nav gerceklesti (pencere asili kalmadi)
+            b1_on_clean, b3_open, on_meta = None, None, {"error": str(e)}
+        watchdog_ok = True
     else:
-        cold_meta = cold_meta or {"error": "kayit yok (WebView2 kosmadi?)"}  # cold/watchdog None
+        b1_on_clean, b3_open, on_meta, watchdog_ok = None, None, {"error": "kayit yok"}, None
+
+    # --- Pass 2: injection OFF baseline (aletin negatif kontrolu: JS-katman SIZMALI) ---
+    off_b1_clean, _off_b3, off_has = _cold_launch(bg, timeout_s, injection_off=True)
+    off_leaked = None if off_b1_clean is None else (off_b1_clean is False)
+
+    # cold = INSTRUMENT-KALIBRELI (baseline sizmadiysa alet kor -> None -> muhur dusmez)
+    cold = cold_signal_from_runs(b1_on_clean, off_leaked)
 
     signals = {
         "cold_pass1_clean": cold,
-        "cold_meta": cold_meta,
+        "b1_on_clean": b1_on_clean,
+        "baseline_off_leaked": off_leaked,       # aletin kalibrasyon kaniti
+        "b3_accept_language_open": b3_open,       # AYRI: owner-gated, B1'i batirmaz
+        "cold_meta_on": on_meta,
         "no_rogue_listener": no_rogue,
         "watchdog_ok": watchdog_ok,
         "elapsed_s": round(time.time() - t0, 1),
@@ -174,9 +229,9 @@ def run_live_seal(timeout_s=18):
     print("[B1-SEAL]", json.dumps(rec, ensure_ascii=False))
     if status == "SEALED":
         subprocess.run(["git", "-C", REPO, "tag", "-f", "L3-B1-sealed"], check=False)
-        print("[B1-SEAL] MUHUR DUSTU (uc ampirik sinyal yesil) -> tag: L3-B1-sealed")
+        print("[B1-SEAL] MUHUR DUSTU (cold kalibreli + port-probe + watchdog) -> tag: L3-B1-sealed")
         return 0
-    print("[B1-SEAL] MUHUR YOK -> kirmizi:", reasons)
+    print("[B1-SEAL] MUHUR YOK -> kirmizi:", reasons, "| B3(accept_language) acik:", b3_open)
     return 1
 
 

@@ -1281,6 +1281,12 @@ def _level_prelude_js():
     # _PRIVACY_JS bunu localStorage'dan ONCE okur -> domain-arasi tutarli.
     cfg = _read_browser_config()
     lvl = cfg.get("privacy_level") or "strict"
+    # Muhur kalibrasyonu (b1_seal): KASA_PRIVACY_LEVEL env ile injection-OFF baseline kosulabilir.
+    # SADECE dusuk-yetki seviyeleri (off/standard/strict); 'paranoid' ASLA env ile acilmaz
+    # (owner-gate bypass olmasin) + oturumluk/efemeral (config'i kirletmez, ilke-5).
+    env_lvl = os.environ.get("KASA_PRIVACY_LEVEL")
+    if env_lvl in ("off", "standard", "strict"):
+        lvl = env_lvl
     if lvl not in ("off", "standard", "strict", "paranoid"):
         lvl = "strict"
     return "window.__KASA_LEVEL__=" + json.dumps(lvl) + ";"

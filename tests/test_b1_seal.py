@@ -122,3 +122,31 @@ def test_rogue_signal_none_feeds_not_sealed(monkeypatch):
     no_rogue = b1_seal.rogue_listener_signal()
     status, reasons = b1_seal.seal_decision(True, no_rogue, True)
     assert status == "NOT_SEALED" and "rogue_probe_unmeasured" in reasons
+
+
+# ---- B3 DECOUPLE: accept_language (owner-gated) B1 muhrunu BATIRMAMALI ----
+
+def test_b1_cold_excludes_b3_accept_language():
+    assert b1_seal.b1_cold_from_meta(["webgl"]) == (False, False)
+    # B3 acik (accept_language sizar) AMA B1 JS-katmani temiz -> b1_clean True, b3_open True
+    assert b1_seal.b1_cold_from_meta(["accept_language"]) == (True, True)
+    assert b1_seal.b1_cold_from_meta([]) == (True, False)
+    assert b1_seal.b1_cold_from_meta(["timezone", "accept_language"]) == (False, True)
+
+
+# ---- COLD DEDEKTOR KALIBRASYONU: alet kor ise (baseline sizmadi) sinyal None ----
+
+def test_cold_signal_requires_calibrated_instrument():
+    assert b1_seal.cold_signal_from_runs(True, True) is True      # ON temiz + baseline sizdi
+    assert b1_seal.cold_signal_from_runs(False, True) is False     # ON kosum sizdi
+    # Baseline (injection-off) SIZMADI -> alet KOR -> None (temiz-gorunen cold False-PASS olmasin)
+    assert b1_seal.cold_signal_from_runs(True, False) is None
+    assert b1_seal.cold_signal_from_runs(None, True) is None
+    assert b1_seal.cold_signal_from_runs(True, None) is None
+
+
+def test_blind_instrument_feeds_not_sealed():
+    # Alet kor (baseline sizmadi) -> cold None -> seal_decision NOT_SEALED (cold_pass1_unmeasured).
+    cold = b1_seal.cold_signal_from_runs(True, False)
+    status, reasons = b1_seal.seal_decision(cold, True, True)
+    assert status == "NOT_SEALED" and "cold_pass1_unmeasured" in reasons
