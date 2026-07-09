@@ -1325,23 +1325,142 @@ def _register_early_privacy(win):
         return False
 
 
+# ---- B1 cold-session bootstrap (ilke-7) -------------------------------------------------
+# Kok-neden: _register_early_privacy on_loaded'da (ilk sayfa YUKLENDIKTEN sonra) cagriliyordu;
+# AddScriptToExecuteOnDocumentCreatedAsync yalniz KENDINDEN SONRAKI dokumanlara isler -> cold
+# pass==1 spoof'suz gidiyordu. Cozum: about:blank ile ac, erken scriptleri KAYDET, SONRA gercek
+# url'e git -> sunucunun gordugu ILK istek spoof'lu. Cekirdek mantik CLR-bagimsiz + GUI'siz test
+# edilir; canli CoreWebView2 sira-davranisi Kapi-2 (canli WebView2 cold-olcumu) bekler.
+
+def _make_navigate_once(load_url):
+    """Idempotent navigasyon: bootstrap-continuation VE watchdog ayni anda tetiklense bile
+    load_url YALNIZ BIR KEZ cagrilir (cift-navigasyon/cift-ilk-istek yok). Thread-safe.
+    navigate.done() gerceklesip gerceklesmedigini doner."""
+    state = {"done": False}
+    lock = threading.Lock()
+
+    def navigate(url):
+        with lock:
+            if state["done"]:
+                return False
+            state["done"] = True
+        load_url(url)
+        return True
+
+    navigate.done = lambda: state["done"]
+    return navigate
+
+
+def _bootstrap_privacy_navigation(core, navigate, real_url, prelude_js, privacy_js):
+    """B1 cekirdek DEGISMEZI (ilke-7): erken privacy scriptleri GERCEK navigasyondan ONCE
+    kaydedilsin. Sira: (1) tracking prevention, (2) AddScript(prelude), (3) AddScript(privacy),
+    (4) IKISI DE kaydedilince -> navigate(real_url). 'core' CLR-bagimsiz arayuz saglar:
+      core.set_tracking(level); core.add_script(js)->task; core.when_all([tasks], cb).
+    navigate YALNIZ when_all callback'inde cagrilir; asla eager degil (sira bozulursa fix yoktur).
+    FAIL-SAFE: herhangi bir adim patlarsa navigate(real_url) hemen (taban=bugunku davranis)."""
+    try:
+        core.set_tracking(1)
+        t1 = core.add_script(prelude_js)
+        t2 = core.add_script(privacy_js)
+        core.when_all([t1, t2], lambda: navigate(real_url))
+    except Exception as e:
+        print(f"[KASA] B1 bootstrap fail-safe (taban navigasyon): {e}")
+        navigate(real_url)
+
+
+def _watchdog_should_navigate(navigated):
+    """Watchdog karari (saf/test edilebilir): navigasyon HIC gerceklesmediyse (about:blank
+    loaded fire etmedi ya da bootstrap navigate cagirmadi) fallback sart. Aksi halde dokunma."""
+    return not navigated
+
+
+class _WinformsCore:
+    """Canli CoreWebView2'yi _bootstrap_privacy_navigation arayuzune sarar (CLR-ozel).
+    when_all: WebView2 cagrilari ayni UI-thread mesaj kuyrugunda SIRALI islenir; AddScript'ler
+    navigate'ten ONCE post edildiginden dokuman-oncesi kayit sira-garantisiyle saglanir. Task
+    tamamlanma-bildirimini beklemek yerine bu sira-garantisine dayanir -> KAPI-2: canli cold
+    olcumu (adversary pass==1) race gosterirse Task.WhenAll().Unwrap().ContinueWith'e yukseltilir."""
+
+    def __init__(self, core):
+        self._core = core
+
+    def set_tracking(self, level):
+        # Cloudflare/Turnstile fix (challenges.cloudflare.com storage'i kesilmesin): Basic=1.
+        try:
+            self._core.Profile.PreferredTrackingPreventionLevel = level
+        except Exception as e:
+            print(f"[KASA] tracking prevention ayari: {e}")
+
+    def add_script(self, js):
+        return self._core.AddScriptToExecuteOnDocumentCreatedAsync(js)
+
+    def when_all(self, tasks, cb):
+        cb()  # ayni UI thread; AddScript'ler zaten sirali post edildi
+
+
+def _bootstrap_on_blank(win, real_url, navigate, registered):
+    """about:blank turunda CoreWebView2'yi al, erken privacy'yi KAYDET, sonra gercek url'e git.
+    Instance/core alinamazsa fail-safe: dogrudan navigate (taban=bugunku davranis)."""
+    try:
+        from webview.platforms.winforms import BrowserView
+        from System import Action
+
+        instance = BrowserView.instances.get(win.uid)
+        if instance is None:
+            navigate(real_url)
+            return
+
+        def inner():
+            core = getattr(instance.browser.webview, "CoreWebView2", None)
+            if core is None:
+                navigate(real_url)
+                return
+            _bootstrap_privacy_navigation(
+                _WinformsCore(core), navigate, real_url, _level_prelude_js(), _PRIVACY_JS)
+            registered["done"] = True  # about:blank turunda kaydedildi -> taban tekrar gerekmez
+            print("[KASA] B1 bootstrap: erken enjeksiyon kaydedildi, gercek navigasyon tetiklendi.")
+
+        instance.BeginInvoke(Action(inner))
+    except Exception as e:
+        print(f"[KASA] B1 bootstrap fail-safe: {e}")
+        navigate(real_url)
+
+
 def open_browser(url: str = "https://lite.duckduckgo.com/lite"):
     _hc_url = os.environ.get("KASA_HEALTHCHECK_URL")
     if _hc_url:
         url = _hc_url
+    real_url = url
     _apply_proxy_env()  # Layer #2: proxy'yi WebView2 olusmadan ONCE uygula
     # Fix: reklam/_blank linkleri harici Chrome yerine AYNI pencerede ac
     # (pywebview on_new_window_request bu ayar False iken self.load_url kullanir)
     webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER'] = False
     api = KasaApi()
+    # B1 (ilke-7): about:blank ile ac -> erken privacy KAYDEDILDIKTEN sonra gercek url'e git.
+    # about:blank ag istegi/parmak-izi yuzeyi uretmez; sunucunun gordugu ILK istek spoof'lu olur.
     win = webview.create_window(
         "KASA Browser",
-        url,
+        "about:blank",
         js_api=api,
         width=1280,
         height=860,
     )
     api.set_window(win)
+
+    navigate = _make_navigate_once(win.load_url)
+
+    # Availability watchdog (#2b): about:blank 'loaded' hic fire etmezse ~2.5s icinde yine de
+    # gercek url'e git. navigate idempotent -> bootstrap ile cakisirsa zararsiz. Bu, yeni
+    # tasarimin bugunkunden KOTU olabilecegi tek yolu (asili about:blank) kapatir.
+    def _watchdog():
+        try:
+            time.sleep(2.5)
+            if _watchdog_should_navigate(navigate.done()):
+                print("[KASA] B1 watchdog: about:blank loaded gelmedi -> taban navigasyon.")
+                navigate(real_url)
+        except Exception:
+            pass
+    threading.Thread(target=_watchdog, daemon=True).start()
 
     if _hc_url:
         # Otonom dongu saglik kapisi (browser_gate.py) icin: sure dolunca kendini kapat.
@@ -1349,6 +1468,12 @@ def open_browser(url: str = "https://lite.duckduckgo.com/lite"):
         # (disaridan rapor/fingerprint denetimi icin, orn. coveryourtracks.eff.org).
         def _autoclose():
             try:
+                # #6: geri-sayimi GERCEK navigasyon baslayana kadar beklet (max 3s) ki capture
+                # about:blank'i degil gercek sayfayi yakalasin.
+                _w = 0.0
+                while not navigate.done() and _w < 3.0:
+                    time.sleep(0.05)
+                    _w += 0.05
                 time.sleep(int(os.environ.get("KASA_HEALTHCHECK_MS", "9000")) / 1000.0)
                 _capture_out = os.environ.get("KASA_CAPTURE_OUT")
                 if _capture_out:
@@ -1364,19 +1489,26 @@ def open_browser(url: str = "https://lite.duckduckgo.com/lite"):
                 pass
         threading.Thread(target=_autoclose, daemon=True).start()
 
-    _early = {"done": False}
+    _registered = {"done": False}
 
     def on_loaded():
-        # Layer #1: ilk yuklemede erken enjeksiyonu kaydet (sonraki tum sayfalar pre-load spoof alir)
-        if not _early["done"]:
-            _early["done"] = _register_early_privacy(win)
+        # Ilk (about:blank) loaded: erken privacy'yi KAYDET, sonra gercek url'e git.
+        # about:blank turunda UI enjekte etme (toolbar/sidebar about:blank'e girmez).
+        if not navigate.done():
+            _bootstrap_on_blank(win, real_url, navigate, _registered)
+            return
+
+        # Gercek sayfa (ve sonraki kullanici navigasyonlari): bugunku davranis bit-bit ayni.
+        # Taban: bootstrap erken kayit yapamadiysa (instance/core alinamadi) burada kaydet.
+        if not _registered["done"]:
+            _registered["done"] = _register_early_privacy(win)
 
         # CSS token'larini global degisken olarak yerlestir; toolbar JS okusun
         escaped = _DESIGN_CSS.replace("\\", "\\\\").replace("`", "\\`")
         win.evaluate_js(f"window.__KASA_DESIGN_CSS__ = `{escaped}`;")
         # Sira 0: seviyeyi _PRIVACY_JS'ten ONCE yerlestir (post-load fallback yolu icin)
         win.evaluate_js(_level_prelude_js())
-        # _PRIVACY_JS post-load fallback (ilk sayfa pre-load alamaz; idempotent guard var)
+        # _PRIVACY_JS post-load fallback (idempotent guard var)
         win.evaluate_js(_PRIVACY_JS)
         win.evaluate_js(_TOOLBAR_JS)
         win.evaluate_js(_SIDEBAR_JS)
