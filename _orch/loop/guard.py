@@ -33,9 +33,16 @@ def check_candidate(code: str, guard_needles, forbidden_needles):
     return True, "ok"
 
 
+_BAK_DIR = "d:/kasa/_bak_archive"
+
+
 def backup(path: str) -> str:
-    """path'i .bak_loop_<ts> olarak yedekler; yedek yolunu dondurur."""
-    bak = path + ".bak_loop_" + time.strftime("%Y%m%d_%H%M%S")
+    """path'i _bak_archive/<ad>.bak_loop_<ts> olarak yedekler; yedek yolunu dondurur.
+    KOK-NEDEN FIX: yedek kaynak DIZININE degil MERKEZI arsive yazilir; aksi halde her loop
+    iterasyonu _orch/loop'a bir .bak_loop birakip birikir (107 dosya olmustu). _bak_archive
+    SCAN-BAK-HYGIENE'de haric tutulur ve gitignore'ludur -> sessiz birikim/izleme yok."""
+    os.makedirs(_BAK_DIR, exist_ok=True)
+    bak = os.path.join(_BAK_DIR, os.path.basename(path) + ".bak_loop_" + time.strftime("%Y%m%d_%H%M%S"))
     shutil.copy2(path, bak)
     return bak
 

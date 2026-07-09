@@ -22,3 +22,10 @@ kasa.db.bak*
 # Yerel model / orch runtime ciktilari (varsa) - kod degil
 _orch/**/tasks/
 *.log
+
+# Stray backup dosyalari — loop_runner/edit araclari .bak biraktiginda git'e GIRMESIN
+# (SCAN-BAK-HYGIENE her kosuda WARN uretir; bunlar da izlenmemeli). _bak_archive haric-tutulmaz
+# cunku oradaki adlar .py uzantili; buradaki desenler yalniz gercek yedek uzantilarini yakalar.
+*.bak
+*.bak.*
+*.bak_*

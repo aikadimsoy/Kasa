@@ -277,23 +277,32 @@ def run():
             }
             results.append(result)
     
-    # Controller: KALICI HIJYEN kontrolu — src/ icinde .bak/yedek birikimi -> WARN.
-    # Tek-seferlik 'mv' degil; benchmark her kosuda denetler (aksi halde ~6 ayda yine 18 tane birikir).
+    # Controller: KALICI HIJYEN — REPO GENELINDE stray .bak/yedek birikimi -> WARN.
+    # Onceki surum YALNIZ src/ tariyordu; tools/ + _orch/loop birikimini kacirdi -> 107 dosya (108
+    # loop-rollback dahil) sessizce birikmisti. Tek-seferlik 'mv' bir KALICI kontrole baglanmadikca
+    # kapanmis sayilmaz. Istisna: _bak_archive (arsivin yeri), kasa.db.bak* (migration yedegi),
+    # .git/__pycache__/venv gurultu dizinleri.
     try:
+        _repo = "d:/kasa"
+        _skip = {"_bak_archive", ".git", "__pycache__", ".pytest_cache",
+                 ".venv", "venv", "node_modules"}
         bak_files = []
-        for root, _dirs, files in os.walk("d:/kasa/src"):
+        for root, dirs, files in os.walk(_repo):
+            dirs[:] = [d for d in dirs if d not in _skip]
             for fn in files:
-                if "bak_" in fn or fn.endswith(".bak"):
-                    bak_files.append(fn)
+                if fn.startswith("kasa.db.bak"):
+                    continue  # migration guvenlik yedegi (bilincli, gitignore'lu)
+                if ".bak" in fn or "bak_" in fn:
+                    bak_files.append(os.path.relpath(os.path.join(root, fn), _repo).replace("\\", "/"))
         results.append({
             "id": "SCAN-BAK-HYGIENE",
             "category": "scan",
-            "title": "No backup (.bak) files under src/",
+            "title": "No stray backup (.bak) files in repo (excl. _bak_archive)",
             "status": "PASS" if not bak_files else "WARN",
             "severity": "medium",
-            "evidence": "No .bak/backup files under src/" if not bak_files
-                        else f"{len(bak_files)} backup files under src/: " + ", ".join(bak_files[:5]),
-            "remediation": "Move .bak/backup files out of src/ (e.g. _bak_archive) so scans stay honest"
+            "evidence": "No stray backup files in repo" if not bak_files
+                        else f"{len(bak_files)} stray backup files (ilk 5): " + ", ".join(sorted(bak_files)[:5]),
+            "remediation": "Stray .bak sil/tasi (git rm izliyorsa); loop_runner yedeklerini _bak_archive'a yazmali"
         })
     except Exception as e:
         results.append({"id": "SCAN-BAK-HYGIENE", "category": "scan", "title": "Backup hygiene check",
