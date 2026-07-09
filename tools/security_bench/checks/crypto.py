@@ -107,34 +107,44 @@ def run():
                 "remediation": ""
             })
         
-        # CRYPTO-ATREST Check
+        # CRYPTO-ATREST Check — L2 app-layer at-rest.
+        # ONEMLI: canary UYGULAMA yazma yolundan (event_ingest + profile_write) gecmeli; dogrudan
+        # INSERT (eski hal) sifrelemeyi atlar ve app-layer'i hic test etmez (sahte FAIL). Sonra
+        # kasa.db + TUM yan dosyalarda (-wal/-shm/-journal) plaintext canary aranir (plan: yan dosyalar).
+        from src.mcp_server.tools import VaultTools
         canary = "KASA_CANARY_" + os.urandom(6).hex()
-        content_str = f'{{"canary": "{canary}"}}'
-        conn.execute("INSERT INTO events (timestamp, session_id, source, type, content, ttl_expiry) VALUES (?,?,?,?,?,?)", (_t.time(), "sess", "bench", "note", content_str, _t.time() + 3600))
-        conn.commit()
+        tools = VaultTools(v, "system")
+        tools.event_ingest("bench", "note", {"canary": canary}, ttl_days=1)      # events.content sifrelenir
+        tools.profile_write("user.profile.canary", {"canary": canary}, [1])       # profile.value sifrelenir
         v.close()
-        
-        with open(v.db_path, "rb") as f:
-            data = f.read()
-        
-        if canary.encode() in data:
+
+        blobs = {}
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            p = v.db_path + suffix
+            if os.path.exists(p):
+                with open(p, "rb") as f:
+                    blobs[p] = f.read()
+        hit = next((os.path.basename(p) for p, b in blobs.items() if canary.encode() in b), None)
+
+        if hit:
             results.append({
                 "id": "CRYPTO-ATREST",
                 "category": "crypto",
                 "title": "Prove vault crypto properties (At Rest)",
                 "status": "FAIL",
                 "severity": "critical",
-                "evidence": f"plaintext canary found at byte offset {data.find(canary.encode())} in kasa.db ({len(data)} bytes)",
-                "remediation": "Enable at-rest DB encryption (SQLCipher / sqlcipher3-binary PRAGMA key, or application-layer AES-GCM on content)."
+                "evidence": f"plaintext canary found in {hit} (app-layer at-rest sizinti)",
+                "remediation": "cell_crypt ile events.content + profile.value + audit.details sifrele (L2)."
             })
         else:
+            total = sum(len(b) for b in blobs.values())
             results.append({
                 "id": "CRYPTO-ATREST",
                 "category": "crypto",
                 "title": "Prove vault crypto properties (At Rest)",
                 "status": "PASS",
                 "severity": "critical",
-                "evidence": "canary absent from raw kasa.db (ciphertext at rest)",
+                "evidence": f"canary absent from kasa.db + yan dosyalar ({len(blobs)} dosya, {total} bytes; app-layer AES-GCM)",
                 "remediation": ""
             })
         

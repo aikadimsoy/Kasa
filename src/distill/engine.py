@@ -76,13 +76,28 @@ class DistillEngine:
         """, (now_ts, max_events))
         events = cursor.fetchall()
 
+        # L2: events.content at-rest sifreli -> okumadan once decrypt (AAD = events|content).
+        # Legacy plaintext seffaf gecer. Anahtar yuklenemezse (dev direct-run) decrypt atlanir.
+        import os as _os
+        try:
+            from src.vault import cell_crypt as _cc
+            _key = _cc.load_key(_os.path.dirname(self.db_path))
+        except Exception:
+            _cc, _key = None, None
+
         # Group events into a compact JSON summary
         event_summaries = []
         for event in events:
             try:
-                content = json.loads(event[5]) if event[5] else {}
+                raw = event[5]
+                if _cc is not None and _key is not None and raw:
+                    raw = _cc.decrypt_cell(raw, _key, _cc.aad_event())
+                content = json.loads(raw) if raw else {}
             except json.JSONDecodeError as e:
                 errors.append(f"Failed to decode JSON content: {e}")
+                continue
+            except Exception as e:
+                errors.append(f"content decrypt failed: {e}")
                 continue
             # event[1] SQLite'dan TEXT olarak gelir — doğrudan kullan
             event_summary = {

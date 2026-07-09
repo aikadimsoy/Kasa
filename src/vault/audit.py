@@ -12,14 +12,17 @@ import time
 import json
 
 class AuditChain:
-    def __init__(self, connection: sqlite3.Connection):
+    def __init__(self, connection: sqlite3.Connection, key: bytes = None):
         """
         AuditChain'i başlatır.
 
         Args:
             connection: Aktif veritabanı bağlantısı.
+            key: (L2) verilirse audit.details ENCRYPT-THEN-HASH ile at-rest sifrelenir.
+                 None ise details duz metin kalir (test/legacy harness'lari icin).
         """
         self.conn = connection
+        self._key = key
 
     def _get_last_hash(self) -> str:
         """Veritabanındaki son denetim kaydının hash'ini alır."""
@@ -46,14 +49,25 @@ class AuditChain:
         """
         timestamp = time.time()
         details_json = json.dumps(details) if details else "{}"
+
+        # L2 ENCRYPT-THEN-HASH: details_json'i once SIFRELE, sonra SAKLANAN (ciphertext) uzerinden
+        # hash'le ve onu sakla. verify_chain saklanan baytı yeniden hash'ledigi icin DEGISMEZ
+        # (yeniden sifreleme yok -> rasgele nonce verify'i bozmaz). GCM tag plaintext butunlugunu,
+        # hash-zinciri ciphertext'i korur; AAD satir-takasini engeller.
+        if self._key is not None:
+            from .cell_crypt import encrypt_cell, aad_audit
+            details_stored = encrypt_cell(details_json, self._key, aad_audit(agent_id, action, timestamp))
+        else:
+            details_stored = details_json
+
         previous_hash = self._get_last_hash()
 
-        # Yeni kaydın hash'ini hesapla
+        # Yeni kaydın hash'ini hesapla (SAKLANAN details uzerinden)
         hasher = hashlib.sha256()
         hasher.update(str(timestamp).encode('utf-8'))
         hasher.update(agent_id.encode('utf-8'))
         hasher.update(action.encode('utf-8'))
-        hasher.update(details_json.encode('utf-8'))
+        hasher.update(details_stored.encode('utf-8'))
         hasher.update(previous_hash.encode('utf-8'))
         entry_hash = hasher.hexdigest()
 
@@ -64,7 +78,7 @@ class AuditChain:
             INSERT INTO audit (timestamp, agent_id, action, details, previous_hash, entry_hash)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (timestamp, agent_id, action, details_json, previous_hash, entry_hash)
+            (timestamp, agent_id, action, details_stored, previous_hash, entry_hash)
         )
         self.conn.commit()
 

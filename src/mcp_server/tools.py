@@ -9,8 +9,15 @@ Her araç çağrısı: izin kontrolü (permissions tablosu) → işlem → audit
 
 import json
 import time
+import hashlib
 import sqlite3
 from ..vault.database import Vault
+from ..vault import cell_crypt
+
+
+def _digest(value) -> str:
+    """Audit'e ham deger yerine yazilacak deterministik ozet (sir degismez zincire girmez)."""
+    return "sha256:" + hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
 class VaultTools:
@@ -22,6 +29,10 @@ class VaultTools:
     def _db(self) -> sqlite3.Connection:
         """Vault'un aktif DB bağlantısını döndürür."""
         return self.vault.get_connection()
+
+    def _key(self) -> bytes:
+        """L2 hucre-sifreleme anahtari (DPAPI-korumali _db_key)."""
+        return self.vault._db_key
 
     def _check_permission(self, scope: str) -> bool:
         """
@@ -84,8 +95,12 @@ class VaultTools:
                 (scope,)
             )
         rows = cursor.fetchall()
+        # L2: value at-rest sifreli -> decrypt (AAD = profile|value|key). Legacy plaintext seffaf gecer.
+        key_bytes = self._key()
         data = [
-            {"key": r[0], "value": json.loads(r[1]), "provenance": json.loads(r[2]), "updated_at": r[3]}
+            {"key": r[0],
+             "value": json.loads(cell_crypt.decrypt_cell(r[1], key_bytes, cell_crypt.aad_profile(r[0]))),
+             "provenance": json.loads(r[2]), "updated_at": r[3]}
             for r in rows
         ]
         result = {"status": "success", "count": len(data), "data": data}
@@ -106,7 +121,8 @@ class VaultTools:
             İşlem sonucunu belirten bir sözlük.
         """
         action = "profile_write"
-        details = {"key": key, "value": value, "provenance": provenance}
+        # L2: audit'e ham `value` YAZILMAZ (tools.py:109 yan-kanal) -> digest. provenance ID'ler, plaintext.
+        details = {"key": key, "value": _digest(value), "provenance": provenance}
 
         if not self._check_permission("profile:write"):
             self.audit_chain.record(self.agent_id, action, {**details, "result": "permission_denied"})
@@ -120,12 +136,14 @@ class VaultTools:
         old_row = cursor.fetchone()
         supersedes_id = old_row[0] if old_row else None
 
+        # L2: value at-rest AES-GCM sifrelenir (AAD = profile|value|key). provenance = event-ID'ler, plaintext.
+        enc_value = cell_crypt.encrypt_cell(json.dumps(value), self._key(), cell_crypt.aad_profile(key))
         cursor.execute(
             """INSERT OR REPLACE INTO profile (id, key, value, provenance, supersedes, created_at, updated_at)
                SELECT old.id, ?, ?, ?, ?, COALESCE(old.created_at, ?), ?
                FROM (SELECT NULL as id, NULL as created_at) as fallback
                LEFT JOIN profile old ON old.key = ?""",
-            (key, json.dumps(value), json.dumps(provenance), supersedes_id, now, now, key)
+            (key, enc_value, json.dumps(provenance), supersedes_id, now, now, key)
         )
         conn.commit()
         result = {"status": "success", "key": key}
@@ -152,19 +170,46 @@ class VaultTools:
 
         conn = self._db()
         cursor = conn.cursor()
-        # Profile satırlarını sil (anahtar prefix eşleşmesi)
+        # Profile satırlarını sil (anahtar plaintext -> prefix eşleşmesi calisir)
         cursor.execute("DELETE FROM profile WHERE key LIKE ?", (topic + '%',))
         profile_deleted = cursor.rowcount
-        # Ham event'leri de sil (TTL'den bağımsız — gerçek silme garantisi)
-        cursor.execute("DELETE FROM events WHERE content LIKE ?", (f'%{topic}%',))
-        events_deleted = cursor.rowcount
-        # Audit zincirinde tombstone kaydı
+
+        # L2: events.content SIFRELI -> `content LIKE` sessizce 0 satir siler (false-PASS sinifi).
+        # Cozum: DECRYPT-SCAN by id. Her satiri coz, topic'i Python'da esle, id ile sil.
+        # forget owner-gated/nadir + events TTL-prune'lu -> tam-tarama maliyeti kabul edilebilir.
+        key_bytes = self._key()
+        cursor.execute("SELECT id, content FROM events")
+        rows = cursor.fetchall()
+        events_scanned = len(rows)
+        match_ids = []
+        for r in rows:
+            try:
+                plain = cell_crypt.decrypt_cell(r["content"], key_bytes, cell_crypt.aad_event())
+            except Exception:
+                plain = ""  # cozulemeyen satir eslesmeye dahil edilmez (ama tarandi sayilir)
+            if topic in plain:
+                match_ids.append(r["id"])
+        events_matched = len(match_ids)
+        if match_ids:
+            placeholders = ",".join("?" * len(match_ids))
+            cursor.execute(f"DELETE FROM events WHERE id IN ({placeholders})", match_ids)
+            events_deleted = cursor.rowcount
+        else:
+            events_deleted = 0
+
+        # SESSIZ-SIFIR GUARD: eslesme bulundu ama silinmediyse artik sessizce "success" DONMEZ.
+        if events_matched != events_deleted:
+            raise RuntimeError(f"forget guard ihlali: matched={events_matched} != deleted={events_deleted}")
+
+        # Audit zincirinde tombstone kaydı (scanned/matched/deleted ayri raporlanir)
         self.audit_chain.record(self.agent_id, "forget_tombstone",
                                 {"topic": topic, "profile_deleted": profile_deleted,
+                                 "events_scanned": events_scanned, "events_matched": events_matched,
                                  "events_deleted": events_deleted})
         conn.commit()
         result = {"status": "success", "topic": topic,
-                  "profile_deleted": profile_deleted, "events_deleted": events_deleted}
+                  "profile_deleted": profile_deleted, "events_scanned": events_scanned,
+                  "events_matched": events_matched, "events_deleted": events_deleted}
 
         self.audit_chain.record(self.agent_id, action, {**details, "result": "success"})
         return result
@@ -193,9 +238,12 @@ class VaultTools:
             (count, start_index)
         )
         rows = cursor.fetchall()
+        # L2: audit.details at-rest sifreli -> decrypt (AAD = audit|details|agent|action|ts). Legacy seffaf.
+        key_bytes = self._key()
         data = [
             {"id": r[0], "timestamp": r[1], "agent_id": r[2], "action": r[3],
-             "details": json.loads(r[4]), "entry_hash": r[5]}
+             "details": json.loads(cell_crypt.decrypt_cell(r[4], key_bytes, cell_crypt.aad_audit(r[2], r[3], r[1]))),
+             "entry_hash": r[5]}
             for r in rows
         ]
         result = {"status": "success", "count": len(data), "records": data}
@@ -241,7 +289,8 @@ class VaultTools:
             İşlem sonucunu belirten bir sözlük.
         """
         action = "event_ingest"
-        details = {"source": source, "type": type, "content": content, "ttl_days": ttl_days}
+        # L2: ham `content` audit'e YAZILMAZ -> digest (forget/unutulma-hakki ile tutarli).
+        details = {"source": source, "type": type, "content": _digest(content), "ttl_days": ttl_days}
 
         if not self._check_permission("events:write"):
             self.audit_chain.record(self.agent_id, action, {**details, "result": "permission_denied"})
@@ -259,9 +308,11 @@ class VaultTools:
         ttl_expiry = now + ttl_days * 86400
         conn = self._db()
         cursor = conn.cursor()
+        # L2: content at-rest AES-GCM sifrelenir (AAD = events|content). Metadata (source/type/ttl) plaintext.
+        enc_content = cell_crypt.encrypt_cell(json.dumps(content), self._key(), cell_crypt.aad_event())
         cursor.execute(
             "INSERT INTO events (timestamp, session_id, source, type, content, ttl_expiry) VALUES (?, ?, ?, ?, ?, ?)",
-            (now, self.agent_id, source, type, json.dumps(content), ttl_expiry)
+            (now, self.agent_id, source, type, enc_content, ttl_expiry)
         )
         event_id = cursor.lastrowid
         conn.commit()

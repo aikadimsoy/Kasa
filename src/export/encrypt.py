@@ -53,6 +53,22 @@ def export_vault(vault_path: str, password: str, output_path: str) -> dict:
     finally:
         conn.close()
 
+    # L2 PORTABILITY: at-rest AES-GCM ciphertext DPAPI-makine-bagli. Export TASINABILIR olmali
+    # (baska makinede parola ile acilir) -> once at-rest decrypt, sonra asagida password-scrypt+AES
+    # ile yeniden sifrele. Legacy plaintext seffaf gecer; anahtar yoksa oldugu gibi birak.
+    try:
+        from ..vault import cell_crypt
+        _key = cell_crypt.load_key(vault_path)
+    except Exception:
+        cell_crypt, _key = None, None
+    if cell_crypt is not None and _key is not None:
+        for e in events:
+            if e.get("content"):
+                e["content"] = cell_crypt.decrypt_cell(e["content"], _key, cell_crypt.aad_event())
+        for p in profile:
+            if p.get("value"):
+                p["value"] = cell_crypt.decrypt_cell(p["value"], _key, cell_crypt.aad_profile(p["key"]))
+
     plaintext_bytes = json.dumps({"events": events, "profile": profile}).encode("utf-8")
 
     salt = os.urandom(32)

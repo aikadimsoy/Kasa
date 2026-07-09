@@ -1,11 +1,11 @@
 {
   "meta": {
-    "date": "2026-07-09T09:07:26",
+    "date": "2026-07-09T10:05:14",
     "os": "Windows-11-10.0.26200-SP0",
     "os_build": "10.0.26200",
     "python": "3.14.5",
     "host": "REDACTED-HOST",
-    "commit": "a258b46",
+    "commit": "5ab2fd1",
     "config_hash": "27022693a685",
     "webview2": "150.0.4078.48",
     "tier": "base"
@@ -13,8 +13,8 @@
   "verdict": "YAYINA HAZIR DEĞİL (kritik açık)",
   "counts": {
     "total": 21,
-    "PASS": 18,
-    "FAIL": 2,
+    "PASS": 19,
+    "FAIL": 1,
     "WARN": 1,
     "SKIP": 0
   },
@@ -62,7 +62,7 @@
     {
       "id": "AUTHZ-DENY",
       "category": "authz",
-      "title": "valid token, agent_id='unauthz_fd10b5', tool profile_read parameters {'scope':'user.name'}",
+      "title": "valid token, agent_id='unauthz_04ec9b', tool profile_read parameters {'scope':'user.name'}",
       "status": "PASS",
       "severity": "critical",
       "evidence": "Status code: 403"
@@ -106,10 +106,10 @@
       "id": "CRYPTO-ATREST",
       "category": "crypto",
       "title": "Prove vault crypto properties (At Rest)",
-      "status": "FAIL",
+      "status": "PASS",
       "severity": "critical",
-      "evidence": "plaintext canary found at byte offset 8096 in kasa.db (49152 bytes)",
-      "remediation": "Enable at-rest DB encryption (SQLCipher / sqlcipher3-binary PRAGMA key, or application-layer AES-GCM on content)."
+      "evidence": "canary absent from kasa.db + yan dosyalar (1 dosya, 49152 bytes; app-layer AES-GCM)",
+      "remediation": ""
     },
     {
       "id": "CRYPTO-DPAPI",
@@ -153,7 +153,7 @@
       "title": "Static Analysis with Bandit",
       "status": "WARN",
       "severity": "high",
-      "evidence": "High: 0, Medium: 5; Found MEDIUM severity issues.",
+      "evidence": "High: 0, Medium: 6; Found MEDIUM severity issues.",
       "remediation": "pip install bandit; review src findings"
     },
     {
@@ -171,7 +171,7 @@
       "title": "Secret Detection with Detect-Secrets (allowlist-suzulmus)",
       "status": "FAIL",
       "severity": "critical",
-      "evidence": "1 denetlenmemis secret (10 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]",
+      "evidence": "3 denetlenmemis secret (11 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]; tests/test_l2_at_rest.py:59 [Secret Keyword]; tests/test_l2_at_rest.py:73 [Secret Keyword]",
       "remediation": "bearer_token: owner-only ACL uygulandi; kalan -> rotasyon + DPAPI-wrap/at-rest (owner-gated). Yeni bulgu gercekse kaynaktan kaldir, fixture/FP ise gerekceyle secret_allowlist.json'a ekle."
     },
     {

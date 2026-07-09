@@ -75,7 +75,8 @@ class Vault:
         self.conn.execute("PRAGMA secure_delete=ON")
 
         self._init_schema()
-        self.audit_chain = AuditChain(self.conn)
+        # L2: audit.details at-rest sifreleme icin _db_key gecilir (encrypt-then-hash).
+        self.audit_chain = AuditChain(self.conn, key=self._db_key)
 
     def _init_schema(self):
         """Veritabanı şemasını ve indekslerini oluşturur."""

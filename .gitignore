@@ -15,6 +15,9 @@ kasa.db-wal
 kasa.db-shm
 *.db-wal
 *.db-shm
+kasa.db.bak*
+# DPAPI-korumali vault anahtari (makine+kullanici bagli) — git'te izlenmez
+.vaultkey
 
 # Yerel model / orch runtime ciktilari (varsa) - kod degil
 _orch/**/tasks/
