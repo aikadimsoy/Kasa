@@ -34,16 +34,33 @@ def check_candidate(code: str, guard_needles, forbidden_needles):
 
 
 _BAK_DIR = "d:/kasa/_bak_archive"
+_BAK_KEEP = 10  # basename basina TUTULACAK son yedek sayisi (SINIRLI SINK -> retention)
+
+
+def _prune(base: str) -> None:
+    """base icin _bak_archive'da son _BAK_KEEP yedegi tut, eskiyi sil. Timestamp lexical=kronolojik
+    oldugundan sirali dilimleme dogru. Bu, 'merkezi dizine tasidik ama sinirsiz birikiyor' kor
+    noktasini kapatir: sink artik BOUNDED."""
+    prefix = base + ".bak_loop_"
+    baks = sorted(f for f in os.listdir(_BAK_DIR) if f.startswith(prefix))
+    for old in baks[:-_BAK_KEEP]:
+        try:
+            os.remove(os.path.join(_BAK_DIR, old))
+        except OSError:
+            pass
 
 
 def backup(path: str) -> str:
     """path'i _bak_archive/<ad>.bak_loop_<ts> olarak yedekler; yedek yolunu dondurur.
-    KOK-NEDEN FIX: yedek kaynak DIZININE degil MERKEZI arsive yazilir; aksi halde her loop
-    iterasyonu _orch/loop'a bir .bak_loop birakip birikir (107 dosya olmustu). _bak_archive
-    SCAN-BAK-HYGIENE'de haric tutulur ve gitignore'ludur -> sessiz birikim/izleme yok."""
+    KOK-NEDEN (iki katman): (a) yedek kaynak dizinine DEGIL merkezi arsive yazilir; (b) loop her
+    iterasyonda uretir -> SINIRSIZ SINK olmasin diye basename basina son _BAK_KEEP tutulur, gerisi
+    age-out. 'Nereye' degil 'ne kadar' da sinirli. Arsiv ayrica SCAN-BAK-HYGIENE'de sayi-esigiyle
+    denetlenir (retention bozulursa musfettis WARN basar -> kor nokta yok)."""
     os.makedirs(_BAK_DIR, exist_ok=True)
-    bak = os.path.join(_BAK_DIR, os.path.basename(path) + ".bak_loop_" + time.strftime("%Y%m%d_%H%M%S"))
+    base = os.path.basename(path)
+    bak = os.path.join(_BAK_DIR, base + ".bak_loop_" + time.strftime("%Y%m%d_%H%M%S"))
     shutil.copy2(path, bak)
+    _prune(base)
     return bak
 
 

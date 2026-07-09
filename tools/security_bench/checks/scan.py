@@ -286,6 +286,9 @@ def run():
         _repo = "d:/kasa"
         _skip = {"_bak_archive", ".git", "__pycache__", ".pytest_cache",
                  ".venv", "venv", "node_modules"}
+        _ARCHIVE_MAX = 200  # _bak_archive KOR NOKTA olmasin: sinir asilirsa retention bozuk -> WARN.
+        # (10/basename retention ile ~15+ basename bile <200; 'binlerce birikti' senaryosunu yakalar,
+        #  mesru retention'i false-WARN etmez.)
         bak_files = []
         for root, dirs, files in os.walk(_repo):
             dirs[:] = [d for d in dirs if d not in _skip]
@@ -294,15 +297,26 @@ def run():
                     continue  # migration guvenlik yedegi (bilincli, gitignore'lu)
                 if ".bak" in fn or "bak_" in fn:
                     bak_files.append(os.path.relpath(os.path.join(root, fn), _repo).replace("\\", "/"))
+        # _bak_archive'i HARIC TUTMAK bir kor nokta yaratir (uretim hatti oraya yaziyor). Tumden
+        # gormezden gelmek yerine SAYI ESIGI koy: retention (guard._BAK_KEEP) calisiyorsa arsiv
+        # kucuk kalir; bozulursa esik asilir ve musfettis WARN basar -> sinirsiz-sink kor noktasi yok.
+        arch_dir = os.path.join(_repo, "_bak_archive")
+        arch_count = sum(1 for f in os.listdir(arch_dir)
+                         if (".bak" in f or "bak_" in f)) if os.path.isdir(arch_dir) else 0
+        problems = []
+        if bak_files:
+            problems.append(f"{len(bak_files)} stray (excl _bak_archive): " + ", ".join(sorted(bak_files)[:5]))
+        if arch_count > _ARCHIVE_MAX:
+            problems.append(f"_bak_archive sinir asti: {arch_count}>{_ARCHIVE_MAX} (retention bozuk?)")
         results.append({
             "id": "SCAN-BAK-HYGIENE",
             "category": "scan",
-            "title": "No stray backup (.bak) files in repo (excl. _bak_archive)",
-            "status": "PASS" if not bak_files else "WARN",
+            "title": "No stray backups + bounded _bak_archive",
+            "status": "PASS" if not problems else "WARN",
             "severity": "medium",
-            "evidence": "No stray backup files in repo" if not bak_files
-                        else f"{len(bak_files)} stray backup files (ilk 5): " + ", ".join(sorted(bak_files)[:5]),
-            "remediation": "Stray .bak sil/tasi (git rm izliyorsa); loop_runner yedeklerini _bak_archive'a yazmali"
+            "evidence": f"No stray backups; _bak_archive bounded ({arch_count}/{_ARCHIVE_MAX})"
+                        if not problems else " | ".join(problems),
+            "remediation": "Stray'i sil/tasi; _bak_archive icin retention (guard._BAK_KEEP) veya age-out"
         })
     except Exception as e:
         results.append({"id": "SCAN-BAK-HYGIENE", "category": "scan", "title": "Backup hygiene check",
