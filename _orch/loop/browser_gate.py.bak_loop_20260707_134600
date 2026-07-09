@@ -1,0 +1,5 @@
+# -*- coding: utf-8 -*-
+# Bootstrap placeholder -- otonom dongu (deepseek->qwen) 'kasa-health-gate' isinde
+# bunu tam dosyayla degistirecek. Yerinde durursa run_gate fail-closed doner.
+def run_gate(mode="boot", timeout_s=16):
+    return False, {"error": "browser_gate henuz olusturulmadi (bootstrap placeholder)"}

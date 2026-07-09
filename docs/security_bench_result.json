@@ -1,0 +1,200 @@
+{
+  "meta": {
+    "date": "2026-07-09T07:06:47",
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.5",
+    "host": "REDACTED-HOST"
+  },
+  "verdict": "YAYINA HAZIR DEĞİL (kritik açık)",
+  "counts": {
+    "total": 21,
+    "PASS": 18,
+    "FAIL": 2,
+    "WARN": 1,
+    "SKIP": 0
+  },
+  "results": [
+    {
+      "id": "AUTHZ-TOKEN-MISSING",
+      "category": "authz",
+      "title": "POST with NO Authorization header",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Status code: 401"
+    },
+    {
+      "id": "AUTHZ-TOKEN-WRONG",
+      "category": "authz",
+      "title": "POST with header Bearer 'definitely-wrong-token'",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Status code: 401"
+    },
+    {
+      "id": "AUTHZ-C5",
+      "category": "authz",
+      "title": "valid token, agent_id='system', tool profile_read parameters {'scope':'user.name'}",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Status code: 403"
+    },
+    {
+      "id": "AUTHZ-C7",
+      "category": "authz",
+      "title": "valid token, agent_id='tester', tool_name='grant_permission'",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "Status code: 404"
+    },
+    {
+      "id": "AUTHZ-C8",
+      "category": "authz",
+      "title": "valid token, agent_id='tester', tool_name='_check_permission'",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "Status code: 404"
+    },
+    {
+      "id": "AUTHZ-DENY",
+      "category": "authz",
+      "title": "valid token, agent_id='unauthz_512c37', tool profile_read parameters {'scope':'user.name'}",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Status code: 403"
+    },
+    {
+      "id": "AUTHZ-BIND",
+      "category": "authz",
+      "title": "Static check on server binding host",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "Default host: 127.0.0.1"
+    },
+    {
+      "id": "CRYPTO-EXPORT",
+      "category": "crypto",
+      "title": "Prove vault crypto properties (Export)",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "Events count: 1",
+      "remediation": ""
+    },
+    {
+      "id": "CRYPTO-EXPORT",
+      "category": "crypto",
+      "title": "Prove vault crypto properties (Export)",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "wrong-pw rejected",
+      "remediation": ""
+    },
+    {
+      "id": "CRYPTO-KDF",
+      "category": "crypto",
+      "title": "Prove vault crypto properties (Key Derivation Function)",
+      "status": "PASS",
+      "severity": "medium",
+      "evidence": "scrypt parameters found",
+      "remediation": ""
+    },
+    {
+      "id": "CRYPTO-ATREST",
+      "category": "crypto",
+      "title": "Prove vault crypto properties (At Rest)",
+      "status": "FAIL",
+      "severity": "critical",
+      "evidence": "plaintext canary found at byte offset 8096 in kasa.db (49152 bytes)",
+      "remediation": "Enable at-rest DB encryption (SQLCipher / sqlcipher3-binary PRAGMA key, or application-layer AES-GCM on content)."
+    },
+    {
+      "id": "CRYPTO-DPAPI",
+      "category": "crypto",
+      "title": "Prove vault crypto properties (Data Protection API)",
+      "status": "PASS",
+      "severity": "info",
+      "evidence": "DPAPI CryptProtectData available for key file",
+      "remediation": ""
+    },
+    {
+      "id": "AUDIT-VERIFY",
+      "category": "audit",
+      "title": "Audit Chain Integrity Verified",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "3-record chain verified",
+      "remediation": ""
+    },
+    {
+      "id": "AUDIT-TAMPER-MODIFY",
+      "category": "audit",
+      "title": "Audit Chain Tamper Detection",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Tampering detected in row 2",
+      "remediation": ""
+    },
+    {
+      "id": "AUDIT-TAMPER-DELETE",
+      "category": "audit",
+      "title": "Audit Chain Deletion Detection",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Deletion detected in row 2",
+      "remediation": ""
+    },
+    {
+      "id": "SCAN-BANDIT",
+      "category": "scan",
+      "title": "Static Analysis with Bandit",
+      "status": "WARN",
+      "severity": "high",
+      "evidence": "High: 0, Medium: 5; Found MEDIUM severity issues.",
+      "remediation": "pip install bandit; review src findings"
+    },
+    {
+      "id": "SCAN-PIPAUDIT",
+      "category": "scan",
+      "title": "Dependency Audit with pip-audit",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "Vulnerable dependencies: 0",
+      "remediation": "pip install pip-audit; review requirements.txt findings"
+    },
+    {
+      "id": "SCAN-SECRETS",
+      "category": "scan",
+      "title": "Secret Detection with Detect-Secrets",
+      "status": "FAIL",
+      "severity": "critical",
+      "evidence": "Total findings: 10; First file with secrets: _orch\\redteam\\ai_attack_test.py",
+      "remediation": "Review filesystem findings"
+    },
+    {
+      "id": "SCAN-BAK-HYGIENE",
+      "category": "scan",
+      "title": "No backup (.bak) files under src/",
+      "status": "PASS",
+      "severity": "medium",
+      "evidence": "No .bak/backup files under src/",
+      "remediation": "Move .bak/backup files out of src/ (e.g. _bak_archive) so scans stay honest"
+    },
+    {
+      "id": "FUZZ-NOAUTH",
+      "category": "fuzz",
+      "title": "Malformed unauthenticated request rejected",
+      "status": "PASS",
+      "severity": "critical",
+      "evidence": "Status code: 401",
+      "remediation": "Reject unauthenticated requests before body parsing"
+    },
+    {
+      "id": "FUZZ-EXECUTE",
+      "category": "fuzz",
+      "title": "Malformed payload robustness (execute_tool)",
+      "status": "PASS",
+      "severity": "high",
+      "evidence": "10 malformed payloads sent, 0 caused 5xx",
+      "remediation": "Return 4xx for malformed input; enforce request-model validation and size limits"
+    }
+  ]
+}

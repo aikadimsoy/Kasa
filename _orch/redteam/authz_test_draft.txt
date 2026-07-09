@@ -1,0 +1,9 @@
+ ```python
+# -*- coding: utf-8 -*-
+"""
+tests/test_authz.py için Project KASA'ya özel pytest güvenlik regresyon testleri. MCP sunucusunun yetkilendirmesi için.
+Mevcut `server_client` fixture'ı (conftest.py'den), FastAPI TestClient ile bir sözlük döndürür, raise_server_exceptions=False.
+Uç noktalar: POST /v1/execute_tool  gövdesi {"tool_calls":[{"tool_name":.., "parameters":{..}}], "agent_id":..} ;
+POST /v1/ingest  gövdesi {"tool":.., "agent_id":.., "params":{..}}.
+"""
+```

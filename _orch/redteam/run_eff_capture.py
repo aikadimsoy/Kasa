@@ -1,0 +1,22 @@
+# -*- coding: utf-8 -*-
+"""Gercek KASA browser'ini coveryourtracks.eff.org'a yonlendirip test sonuc
+sayfasinin metnini yakalar. Sadece capture/orkestrasyon -- analiz yerel modele birakilir."""
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
+OUT = os.path.join(HERE, "eff_capture.txt")
+
+env = dict(os.environ)
+env["KASA_HEALTHCHECK_URL"] = "https://coveryourtracks.eff.org/"
+env["KASA_HEALTHCHECK_MS"] = "30000"  # test otomatik calisip /results'a yonlenmesi icin
+env["KASA_CAPTURE_OUT"] = OUT
+env["PYTHONPATH"] = REPO
+
+py = "C:/Users/REDACTED-USER/AppData/Local/Python/pythoncore-3.14-64/python.exe"
+code = "import sys; sys.path.insert(0, r'%s\\src\\browser'); import browser_window; browser_window.open_browser()" % REPO
+subprocess.run([py, "-c", code], env=env, cwd=REPO, timeout=60)
+
+print("CAPTURED:", OUT, os.path.exists(OUT), os.path.getsize(OUT) if os.path.exists(OUT) else 0)

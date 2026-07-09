@@ -1,0 +1,10 @@
+ 1. PyQt5 QWebEngineView JavaScript injection for page content extraction
+2. Compare PyQt6 and PyQt5 WebEngine stability in 2025-2026
+3. Tor integration with Python using stem library as SOCKS proxy for QWebEngine
+4. Security analysis of local MCP server in KASA browser (localhost attack surface)
+5. GitHub repositories similar to Project KASA (local memory + AI agent browser)
+6. Known issues and GPU performance in Qt WebEngine on Windows 11
+7. MCP protocol implementation details in existing browser integrations
+8. Privacy-focused browsers built with Qt (comparison, architecture discussions)
+9. Tor and Qt WebEngine SOCKS5 proxy configuration guide
+10. Local-first AI agent browser architectures (research articles, blog posts 2024-2026)

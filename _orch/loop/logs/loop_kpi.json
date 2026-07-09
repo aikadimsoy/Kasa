@@ -1,0 +1,16 @@
+{
+  "last_run_ts": "2026-07-07T16:21:41.511776+00:00",
+  "duration_s": 7351.9,
+  "jobs_run": 1,
+  "green": 0,
+  "blocked": 1,
+  "needs_test": 0,
+  "iters_total": 5,
+  "results": [
+    {
+      "id": "tracker-request-block-paranoid",
+      "outcome": "blocked",
+      "iters": 5
+    }
+  ]
+}

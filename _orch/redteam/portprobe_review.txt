@@ -1,0 +1,155 @@
+```python
+import os
+import json
+import urllib.request
+from urllib.error import HTTPError
+import re
+
+BASE = "http://127.0.0.1:8000"
+
+def read_token():
+    with open("d:/kasa/kasa.toml", 'r') as file:
+        for line in file:
+            match = re.search(r'bearer_token\s*=\s*"([^"]+)"', line)
+            if match:
+                return match.group(1)
+    raise ValueError("Token not found")
+
+def post(path, body, headers):
+    url = f"{BASE}{path}"
+    data = json.dumps(body).encode('utf-8')
+    req = urllib.request.Request(url, data, headers)
+    try:
+        with urllib.request.urlopen(req) as response:
+            return (response.getcode(), response.read().decode('utf-8'))
+    except HTTPError as e:
+        return (e.code, e.read().decode('utf-8'))
+
+TOKEN = read_token()
+AUTH = {"Authorization": f"Bearer {TOKEN}", "Content-Type":"application/json"}
+
+def check_health():
+    url = f"{BASE}/"
+    req = urllib.request.Request(url, headers={})
+    try:
+        with urllib.request.urlopen(req) as response:
+            return (response.getcode(), response.read().decode('utf-8'))
+    except HTTPError as e:
+        return (e.code, e.read().decode('utf-8'))
+
+def write_results(results):
+    with open("probe_results.json", 'w') as file:
+        json.dump(results, file)
+
+results = []
+
+# C1 health check
+status_code, response = check_health()
+result = "SECURE" if status_code == 200 else "VULNERABLE"
+results.append({"check": "C1", "verdict": result, "status": status_code, "detail": response})
+print(f"[{'SECURE' if status_code == 200 else 'VULN'}] C1 health -> {response}")
+
+# C2 no_token check
+try:
+    status_code, response = post("/v1/ingest", {"tool": "event_ingest", "agent_id": "system", "params": {"source": "probe", "type": "t", "content": {"a": 1}}}, {})
+    result = "SECURE" if status_code in [401, 403] else "VULNERABLE"
+    results.append({"check": "C2", "verdict": result, "status": status_code, "detail": response})
+    print(f"[{'SECURE' if status_code in [401, 403] else 'VULN'}] C2 no_token -> {response}")
+except HTTPError as e:
+    results.append({"check": "C2", "verdict": "VULNERABLE" if e.code == 401 else "SECURE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if e.code == 401 else 'VULN'}] C2 no_token -> {str(e.read())}")
+
+# C3 wrong_token check
+try:
+    status_code, response = post("/v1/ingest", {"tool": "event_ingest", "agent_id": "system", "params": {"source": "probe", "type": "t", "content": {"a": 1}}}, {"Authorization": "Bearer deadbeef"})
+    result = "SECURE" if status_code == 401 else "VULNERABLE"
+    results.append({"check": "C3", "verdict": result, "status": status_code, "detail": response})
+    print(f"[{'SECURE' if status_code == 401 else 'VULN'}] C3 wrong_token -> {response}")
+except HTTPError as e:
+    results.append({"check": "C3", "verdict": "VULNERABLE" if e.code == 401 else "SECURE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if e.code == 401 else 'VULN'}] C3 wrong_token -> {str(e.read())}")
+
+# C4 baseline_write check
+try:
+    status_code, response = post("/v1/ingest", {"tool": "event_ingest", "agent_id": "system", "params": {"source": "probe", "type": "t", "content": {"a": 1}}}, AUTH)
+    result = "SECURE" if status_code == 200 else "VULNERABLE"
+    results.append({"check": "C4", "verdict": result, "status": status_code, "detail": response})
+    print(f"[{'SECURE' if status_code == 200 else 'VULN'}] C4 baseline_write -> {response}")
+except HTTPError as e:
+    results.append({"check": "C4", "verdict": "VULNERABLE" if e.code >= 400 else "SECURE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if status_code == 200 else 'VULN'}] C4 baseline_write -> {str(e.read())}")
+
+# C5 system_privilege_bypass check
+try:
+    response = post("/v1/execute_tool", {"agent_id": "system", "tool_calls": [{"tool_name": "profile_write", "parameters": {"key": "pwn.sys", "value": "x", "provenance": []}}]}, AUTH)
+    result = "VULNERABLE" if response[0] == 200 and 'success' in response[1] else "SECURE"
+    results.append({"check": "C5", "verdict": result, "status": response[0], "detail": response[1]})
+    print(f"[{'SECURE' if response[0] != 200 or 'success' not in response[1] else 'VULN'}] C5 system_privilege_bypass -> {response[1]}")
+except HTTPError as e:
+    results.append({"check": "C5", "verdict": "SECURE" if e.code >= 400 else "VULNERABLE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if e.code >= 400 else 'VULN'}] C5 system_privilege_bypass -> {str(e.read())}")
+
+# C6 deny_by_default check
+try:
+    response = post("/v1/execute_tool", {"agent_id": "attacker_random", "tool_calls": [{"tool_name": "profile_write", "parameters": {"key": "pwn.a", "value": "x", "provenance": []}}]}, AUTH)
+    result = "SECURE" if response[0] not in [200, 201] else "VULNERABLE"
+    results.append({"check": "C6", "verdict": result, "status": response[0], "detail": response[1]})
+    print(f"[{'SECURE' if response[0] not in [200, 201] else 'VULN'}] C6 deny_by_default -> {response[1]}")
+except HTTPError as e:
+    results.append({"check": "C6", "verdict": "SECURE" if e.code >= 400 else "VULNERABLE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if e.code >= 400 else 'VULN'}] C6 deny_by_default -> {str(e.read())}")
+
+# C7 grant_permission_escalation check
+try:
+    response = post("/v1/execute_tool", {"agent_id": "attacker_random", "tool_calls": [{"tool_name": "grant_permission", "parameters": {"scope": "profile:write"}}]}, AUTH)
+    result = "VULNERABLE" if response[0] == 200 and 'success' in response[1] else "SECURE"
+    results.append({"check": "C7", "verdict": result, "status": response[0], "detail": response[1]})
+    print(f"[{'SECURE' if response[0] != 200 or 'success' not in response[1] else 'VULN'}] C7 grant_permission_escalation -> {response[1]}")
+except HTTPError as e:
+    results.append({"check": "C7", "verdict": "SECURE" if e.code >= 400 else "VULNERABLE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if e.code >= 400 else 'VULN'}] C7 grant_permission_escalation -> {str(e.read())}")
+
+# C8 unauthorized_access check
+try:
+    response = post("/v1/execute_tool", {"agent_id": "attacker_random", "tool_calls": [{"tool_name": "profile_read", "parameters": {"key": "pwn.sys"}}]}, AUTH)
+    result = "VULNERABLE" if response[0] == 200 and 'success' in response[1] else "SECURE"
+    results.append({"check": "C8", "verdict": result, "status": response[0], "detail": response[1]})
+    print(f"[{'SECURE' if response[0] != 200 or 'success' not in response[1] else 'VULN'}] C8 unauthorized_access -> {response[1]}")
+except HTTPError as e:
+    results.append({"check": "C8", "verdict": "SECURE" if e.code >= 400 else "VULNERABLE", "status": e.code, "detail": str(e.read())})
+    print(f"[{'SECURE' if e.code >= 400 else 'VULN'}] C8 unauthorized_access -> {str(e.read())}")
+
+# C9 access_control_origin check
+try:
+    url = f"{BASE}/"
+    req = urllib.request.Request(url, headers={})
+    with urllib.request.urlopen(req) as response:
+        origin_header = response.getheader('Access-Control-Allow-Origin')
+        result = "SECURE" if origin_header == "*" else "VULNERABLE"
+        results.append({"check": "C9", "verdict": result, "status": 200, "detail": origin_header})
+        print(f"[{'SECURE' if origin_header == '*' else 'VULN'}] C9 access_control_origin -> {origin_header}")
+except HTTPError as e:
+    results.append({"check": "C9", "verdict": "VULNERABLE", "status": e.code, "detail": str(e.read())})
+    print(f"[VULN] C9 access_control_origin -> {str(e.read())}")
+
+# C10/C11 re-check GET / afterward to confirm the server did not crash
+def check_server_crash():
+    status_code, response = check_health()
+    return status_code == 200
+
+if not check_server_crash():
+    results.append({"check": "C10", "verdict": "VULNERABLE", "status": None, "detail": "Server crashed"})
+    print("[VULN] C10 server_crash -> Server crashed")
+else:
+    results.append({"check": "C10", "verdict": "SECURE", "status": 200, "detail": "Server did not crash"})
+    print("[SECURE] C10 server_crash -> Server did not crash")
+
+if not check_server_crash():
+    results.append({"check": "C11", "verdict": "VULNERABLE", "status": None, "detail": "Server crashed"})
+    print("[VULN] C11 server_crash -> Server crashed")
+else:
+    results.append({"check": "C11", "verdict": "SECURE", "status": 200, "detail": "Server did not crash"})
+    print("[SECURE] C11 server_crash -> Server did not crash")
+
+write_results(results)
+```

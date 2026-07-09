@@ -1,0 +1,464 @@
+KASA
+
+      
+        
+          
+            
+            
+              
+              A Project of the Electronic Frontier Foundation
+              
+            
+          
+          
+          
+          
+            
+                
+                
+              
+                See how trackers view your browser
+              
+            
+            
+              
+                Learn
+                About
+                Donate
+              
+            
+        
+      
+    
+  
+  
+  
+    
+        
+  
+    
+      How to read your report
+  You will see a summary of your overall tracking protection. The first section gives you a general idea of what your browser configuration is blocking (or not blocking). Below that is a list of specific browser characteristics in the format that a tracker would view them. We also provide descriptions of how they are incorporated into your fingerprint.
+  
+  How can trackers track you?
+  Trackers use a variety of methods to identify and track users. Most often, this includes tracking cookies, but it can also include browser fingerprinting. Fingerprinting is a sneakier way to track users and makes it harder for users to regain control of their browsers. This report measures how easily trackers might be able to fingerprint your browser.
+  How can I use my results to be more anonymous?
+  Knowing how easily identifiable you are, or whether you are currently blocking trackers, can help you know what to do next to protect your privacy. While most trackers can be derailed by browser add-ons or built-in protection mechanisms, the sneakiest trackers have ways around even the strongest security. We recommend you use a tracker blocker like Privacy Badger or use a browser that has fingerprinting protection built in.
+  
+  What is a bit of information? 
+  A “bit” is a basic unit of information for computers. The bit represents a logical state with one of two possible values, often represented as "1" or "0", for example. In your results from Cover Your Tracks, some metrics may be listed as “1” or “0”, or “true” or “false”, indicating whether a setting is enabled or disabled. While each individual metric’s details may seem like a small amount of information, when combined with your browser’s other metrics, they can uniquely identify your browser. Your results are measured in “bits of identifying information,” which is a combined summary of all these metrics.   
+
+  
+   Thanks to Fingerprint2 for various fingerprinting tests, Aloodo for portions of the tracker test. Send questions or comments to coveryourtracks@eff.org.
+  
+    
+    
+      Here are your Cover Your Tracks results. They include an overview of how visible you are to trackers, with an index (and glossary) of all the metrics we measure below. 
+      
+        Our tests indicate that
+      
+      Is your browser:
+      
+        
+          
+            Blocking tracking ads?
+            
+          
+          
+            Blocking invisible trackers?
+            
+          
+          
+            Protecting you from fingerprinting?
+            
+          
+          
+            Acceptable ads?
+            
+          
+          
+            Unblocking 3rd parties that honor Do Not Track?
+            
+          
+        
+      
+
+    Still wondering how fingerprinting works?
+     Learn more
+     
+         How to read your report
+  You will see a summary of your overall tracking protection. The first section gives you a general idea of what your browser configuration is blocking (or not blocking). Below that is a list of specific browser characteristics in the format that a tracker would view them. We also provide descriptions of how they are incorporated into your fingerprint.
+  
+  How can trackers track you?
+  Trackers use a variety of methods to identify and track users. Most often, this includes tracking cookies, but it can also include browser fingerprinting. Fingerprinting is a sneakier way to track users and makes it harder for users to regain control of their browsers. This report measures how easily trackers might be able to fingerprint your browser.
+  How can I use my results to be more anonymous?
+  Knowing how easily identifiable you are, or whether you are currently blocking trackers, can help you know what to do next to protect your privacy. While most trackers can be derailed by browser add-ons or built-in protection mechanisms, the sneakiest trackers have ways around even the strongest security. We recommend you use a tracker blocker like Privacy Badger or use a browser that has fingerprinting protection built in.
+  
+  What is a bit of information? 
+  A “bit” is a basic unit of information for computers. The bit represents a logical state with one of two possible values, often represented as "1" or "0", for example. In your results from Cover Your Tracks, some metrics may be listed as “1” or “0”, or “true” or “false”, indicating whether a setting is enabled or disabled. While each individual metric’s details may seem like a small amount of information, when combined with your browser’s other metrics, they can uniquely identify your browser. Your results are measured in “bits of identifying information,” which is a combined summary of all these metrics.   
+
+  
+   Thanks to Fingerprint2 for various fingerprinting tests, Aloodo for portions of the tracker test. Send questions or comments to coveryourtracks@eff.org.
+  
+     
+     Note: because tracking techniques are complex, subtle, and constantly evolving, Cover Your Tracks does not measure all forms of tracking and protection.
+     
+     
+       Back to Top ↑
+     
+     
+       
+         Re-test your browser
+       
+     
+   
+  
+  
+  
+  
+  
+    ghostery_enabled = true;
+    var status_str = {
+      'yes'    : "<span class='complimentary_text'>Yes</span>",
+      'no'     : "<span class='complimentary_text no'>No</span>",
+      'partial': "<span class='complimentary_text partial'>Partial protection</span>"
+    };
+    var fp_status_str = {
+      'yes'       : '<span class="complimentary_text yes">Your browser has a non-unique fingerprint</span>',
+      'almost_yes': '<span style="color: #5cb900; font-size: 15pt;">&#9685;</span><span class="complimentary_text">&nbsp;your browser has a randomized fingerprint</span>',
+      'no'        : '<span class="complimentary_text no">Your browser has a nearly-unique fingerprint</span>',
+      'no_unique' : '<span class="complimentary_text no">Your browser has a unique fingerprint</span>',
+      'partial'   : '<span class="complimentary_text partial">Partial protection</span>'
+    };
+
+    var fpi_whorls = JSON.parse(decodeURIComponent('%7B%22v2%22%3A%7B%22plugins%22%3A%22Plugin%200%3A%20Chrome%20PDF%20Viewer%3B%20Portable%20Document%20Format%3B%20internal-pdf-viewer%3B%20%28Portable%20Document%20Format%3B%20application%2Fpdf%3B%20pdf%29%20%28Portable%20Document%20Format%3B%20text%2Fpdf%3B%20pdf%29.%20Plugin%201%3A%20Chromium%20PDF%20Viewer%3B%20Portable%20Document%20Format%3B%20internal-pdf-viewer%3B%20%28Portable%20Document%20Format%3B%20application%2Fpdf%3B%20pdf%29%20%28Portable%20Document%20Format%3B%20text%2Fpdf%3B%20pdf%29.%20Plugin%202%3A%20Microsoft%20Edge%20PDF%20Viewer%3B%20Portable%20Document%20Format%3B%20internal-pdf-viewer%3B%20%28Portable%20Document%20Format%3B%20application%2Fpdf%3B%20pdf%29%20%28Portable%20Document%20Format%3B%20text%2Fpdf%3B%20pdf%29.%20Plugin%203%3A%20PDF%20Viewer%3B%20Portable%20Document%20Format%3B%20internal-pdf-viewer%3B%20%28Portable%20Document%20Format%3B%20application%2Fpdf%3B%20pdf%29%20%28Portable%20Document%20Format%3B%20text%2Fpdf%3B%20pdf%29.%20Plugin%204%3A%20WebKit%20built-in%20PDF%3B%20Portable%20Document%20Format%3B%20internal-pdf-viewer%3B%20%28Portable%20Document%20Format%3B%20application%2Fpdf%3B%20pdf%29%20%28Portable%20Document%20Format%3B%20text%2Fpdf%3B%20pdf%29.%20%22%2C%22hardware_concurrency%22%3A8%2C%22audio%22%3A%22124.04347527516074%22%2C%22canvas_hash_v2%22%3A%22b3b9374f1df2f3156d68fa3c3873967e%22%2C%22webgl_hash_v2%22%3A%22e5bb4538167277b368ea4d83db7021e5%22%7D%7D'));
+    window.onload = function(){
+      //document.getElementById('fingerprintTable').style.display = "none";
+    //  document.getElementById('buttons').style.display = "none";
+
+      var a_loads = Math.min(4, 3);
+      var t_loads = Math.min(4, 3);
+      var dnt_loads = Math.min(4, 3);
+      var acceptable_ads_test = 1;
+
+      if(acceptable_ads_test){
+        $('#kcarterlink').attr('href', $('#kcarterlink').attr('href') + '?aat=1');
+      }
+
+      (function fingerprint_table_ux(){
+        var showFingerprintLink1 = document.getElementById('showFingerprintLink1');
+        var fingerprintTable = document.getElementById('fingerprintTable')
+      })();
+
+      (function load_iframes(){
+        var cb = Math.floor((Math.random()*1000000)+1);
+        var a = document.getElementById('a');
+        a.src = 'https://trackersimulator.org/kcarting-tally?&random=' + cb;
+
+        var t = document.getElementById('t');
+        t.src = 'https://eviltracker.net/kcarting-tally?&random=' + cb;
+
+        var dnt = document.getElementById('dnt');
+        dnt.src = 'https://do-not-tracker.org/kcarting-tally?&random=' + cb;
+
+        var kcarterlink = document.getElementById('kcarterlink');
+        kcarterlink.onclick = function clearCookies(){
+          a.src = 'https://trackersimulator.org/clear-cookies?&random=' + cb;
+          t.src = 'https://eviltracker.net/clear-cookies?&random=' + cb;
+          dnt.src = 'https://do-not-tracker.org/clear-cookies?&random=' + cb;
+
+          setTimeout(function(){
+            window.location = kcarterlink.href;
+          }, 2000);
+          return false;
+        }
+      })();
+
+      var results = {'known_blockers': []};
+      function display_results(){
+        var metrics = ['ad', 'tracker', 'dnt', 'acceptable_ads'];
+
+        for(x in metrics){
+          var metric = metrics[x];
+          if(metric in results){
+            document.getElementById(metric + '_status').innerHTML = status_str[results[metric]];
+          }
+        }
+        $('.complimentary_text').css('border-bottom', '3px solid #305D42');
+        $('.complimentary_text.no').css('border-bottom', '3px solid #D3473D');
+        $('.complimentary_text.partial').css('border-bottom', '3px solid #F6AD0F');
+      }
+
+      var counter = 0;
+      var sites_responding = {};
+      var tracker_assumed_status;
+      var ad_assumed_status;
+      (function handle_cross_origin_communication(){
+        window.addEventListener("message", receiveMessage, false);
+
+        function receiveMessage(event){
+          counter++;
+          sites_responding[event.origin] = true;
+          if(event.origin == "https://trackersimulator.org"){
+            a_cookies = event.data.split(" ").length;
+            if(a_loads == 3){
+              if(a_loads > a_cookies){
+                ad_assumed_status = 'partial';
+              } else {
+                ad_assumed_status = 'no';
+              }
+            } else {
+              results['ad'] = 'yes';
+            }
+          } else if(event.origin == "https://eviltracker.net"){
+            t_cookies = event.data.split(" ").length;
+            if(t_loads == 3){
+              if(t_loads > t_cookies){
+                tracker_assumed_status = 'partial';
+              } else {
+                tracker_assumed_status = 'no';
+              }
+            } else {
+              results['tracker'] = 'yes';
+            }
+          }
+          display_results();
+        }
+      })();
+
+
+      function other_link(browser, url){
+        var other = document.createElement('p');
+        other.className = 'other_link';
+        other.href = url;
+        other.innerHTML = '<a href="'+url+'">Click here for '+browser+' version</a>';
+        return other;
+      }
+
+      function onChromeInstallFailure(url){
+        window.location.assign(url);
+      }
+
+      function detect_browser_and_platform(){
+        // detect browser
+        var browser = 'other';
+        var platform = 'desktop';
+        if(navigator && navigator.userAgent){
+          if(navigator.userAgent.match(/firefox/i)){
+            browser = 'firefox';
+            if(navigator.userAgent.match(/android/i)){
+              platform = 'android';
+            }
+          } else if(navigator.userAgent.match(/msie/i) || navigator.userAgent.match(/trident/i)){
+            browser = 'ie';
+          } else if(navigator.userAgent.match(/opr\//i)){
+            browser = 'opera';
+            if(navigator.userAgent.match(/mobile/i)){
+              platform = 'android';
+            }
+          } else if(navigator.userAgent.match(/chrome/i)) {
+            browser = 'chrome';
+            if(navigator.userAgent.match(/android/i)){
+              platform = 'android';
+            }
+          } else if(navigator.userAgent.match(/fxios/i)){
+            platform = 'ios';
+            browser = 'firefox';
+          } else if(navigator.userAgent.match(/crios/i)){
+            platform = 'ios';
+            browser = 'chrome';
+          } else if(navigator.userAgent.match(/safari/i)){
+            browser = 'safari';
+            if(navigator.userAgent.match(/mobile/i)){
+              platform = 'ios';
+            }
+          }
+        }
+        return {browser: browser, platform: platform};
+      }
+
+
+      function record_results(){
+        var req = new XMLHttpRequest();
+        req.open("POST", "/record-results",true);
+        req.setRequestHeader('Content-type','application/json')
+        req.send(JSON.stringify(results));
+      }
+
+      setTimeout(function(){
+        if(counter < 3){
+          // We're using PrivacyBadger (heuristic blocking) or domain blacklist
+          results['ad'] = 'yes';
+          results['tracker'] = 'yes';
+          results['acceptable_ads'] = 'yes';
+          if("https://do-not-tracker.org" in sites_responding){
+            results['dnt'] = 'yes';
+          } else {
+            results['dnt'] = 'no';
+          }
+        } else {
+          results['dnt'] = 'no';
+          if(ghostery_enabled){
+            results['tracker'] = 'yes';
+            results['ad'] = 'yes';
+            results['known_blockers'].push('ghostery');
+          } else {
+            if(tracker_assumed_status){
+              results['tracker'] = tracker_assumed_status;
+            }
+            if(ad_assumed_status){
+              results['ad'] = ad_assumed_status;
+            }
+          }
+        }
+
+        // Only display the results of the acceptable ads test if we have at
+        // least *some* protection against ads or trackers.
+        if(acceptable_ads_test &&
+          !(results['ad'] == "no" && results['tracker'] == "no") &&
+          $('#fp_status').html() == fp_status_str['partial'] &&
+          $('#fp_status').html() == fp_status_str['yes']){
+          // If we don't already have a 'yes' result from Privacy Badger...
+          if(results['acceptable_ads'] != 'yes'){
+            results['acceptable_ads'] = 'yes';
+
+            var meta = document.createElement('meta');
+            meta.name = "referrer";
+            meta.content = "no-referrer";
+            document.getElementsByTagName('head')[0].appendChild(meta);
+
+            var acceptable_ad = document.createElement('img');
+            acceptable_ad.onload = function(){
+              if(acceptable_ad.naturalHeight == 1 && acceptable_ad.naturalWidth == 1) {
+                results['acceptable_ads'] = 'yes';
+              } else {
+                results['acceptable_ads'] = 'no';
+                if(results['tracker'] == 'yes'){
+                  results['tracker'] = 'partial';
+                }
+                if(results['ad'] == 'yes'){
+                  results['ad'] = 'partial';
+                }
+              }
+              display_results();
+              display_summary_sentence();
+            };
+            acceptable_ad.src = "https://media.net/favicon.ico";
+          }
+          $('#acceptable_ads_tr').show();
+        }
+
+        if(results['ad'] != 'no' && results['tracker'] != 'no'){
+          if($('#fp_status').html() == fp_status_str['partial']){
+            if(results['acceptable_ads'] == 'no'){
+              results['acceptable_ads'] = 'partial';
+            }
+            results['dnt'] = 'yes';
+            $('#dnt_tr').hide();
+          } else if($('#fp_status').html() == fp_status_str['yes']) {
+            results['ad'] = 'yes';
+            results['tracker'] = 'yes';
+            results['acceptable_ads'] = 'yes';
+            results['dnt'] = 'yes';
+            $('#dnt_tr').hide();
+          }
+        }
+
+        display_results();
+        // final string from results...
+
+        function display_summary_sentence(){
+          var summary_sentence = document.getElementById('summary_sentence');
+
+          if(results['tracker'] == 'yes' && results['ad'] == 'yes' && results['dnt'] == 'yes'){
+            summary_sentence.innerHTML = "you have <strong>strong protection against Web tracking</strong>.";
+          } else if(results['tracker'] == 'yes' && results['ad'] == 'yes' && results['dnt'] == 'no'){
+            summary_sentence.innerHTML = "you have <strong>strong protection against Web tracking</strong>.";
+          } else {
+            if(results['tracker'] == 'no' && results['ad'] == 'no') {
+              summary_sentence.innerHTML = "you are not protected against tracking on the Web. ";
+            } else if(ghostery_detected) {
+              summary_sentence.innerHTML = "you seem to have some privacy software installed, but it <strong>isn't passing these tests</strong>. ";
+            } else {
+              summary_sentence.innerHTML = "you have <strong>some protection</strong> against Web tracking, but it has <strong>some gaps</strong>. ";
+            }
+            detection = detect_browser_and_platform();
+
+          }
+          document.getElementById('buttons').style.display = 'block';
+        }
+        display_summary_sentence();
+        record_results();
+      },2000);
+
+      var tries = 0;
+      ghostery_detected = null;
+      var int_id = window.setInterval(function(){
+        var purple_box  = document.querySelector('div[title="Click to dismiss alert bubble"]');
+
+        //Ghostery installed
+        if (purple_box != null){
+          window.clearInterval(int_id);
+
+          ghostery_detected = 'yes';
+          /*var piwik_span = purple_box.querySelector('span');
+          if(piwik_span.className.match(/blocked$/)){
+            ghostery_detected = 'yes';
+          } else {
+            ghostery_detected = 'no';
+          }*/
+        } else if(tries >= 200){
+          window.clearInterval(int_id);
+        }
+        tries += 1;
+      },10);
+    };
+    window.onunload=function() {};
+  
+  
+  
+  
+
+
+    
+
+      
+        
+          .userData {behavior:url(#default#userdata);}
+        
+
+        
+
+        
+          var attributes = {codebase: "java", code: "fonts.class", id: "javafontshelper", name: "javafontshelper", "mayscript": "true", width: 1, height: 1};
+          if (deployJava.versionCheck('1.1+'))
+            deployJava.writeAppletTag(attributes);
+        
+        
+        
+        
+        
+      
+
+      
+        
+          
+
+          
+            Donate to EFF
+            Contact
+            Privacy
+            CC-License
+          
+        
+      
+    
+
+    
+      <img src="https://coveryourtracks.eff.org/js/?idsite=40&amp;rec=1&amp;action_name=Panopticlick" style="border:0" height="0" width="0" alt="" />
+      
+      
+        document.getElementById('anon-stats').innerHTML = '<img src="https://coveryourtracks.eff.org/js/?idsite=40&amp;rec=1&amp;urlref=' + encodeURIComponent(document.referrer) + '&amp;action_name=' + encodeURIComponent(document.title) + '" style="border:0" height="0" width="0" alt="" />';
+      
+    
+  

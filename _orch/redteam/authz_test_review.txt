@@ -1,0 +1,47 @@
+```python
+# -*- coding: utf-8 -*-
+"""
+tests/test_authz.py için Project KASA'ya özel pytest güvenlik regresyon testleri. MCP sunucusunun yetkilendirmesi için.
+Mevcut `server_client` fixture'ı (conftest.py'den), FastAPI TestClient ile bir sözlük döndürür, raise_server_exceptions=False.
+Uç noktalar: POST /v1/execute_tool  gövdesi {"tool_calls":[{"tool_name":.., "parameters":{..}}], "agent_id":..} ;
+POST /v1/ingest  gövdesi {"tool":.., "agent_id":.., "params":{..}}.
+"""
+
+import pytest
+
+def test_c5_network_cannot_claim_system(server_client):
+    client = server_client['client']
+    headers = server_client['headers']
+    
+    response = client.post(
+        "/v1/execute_tool",
+        json={"tool_calls":[{"tool_name":"network", "parameters":{"action":"claim_system"}}], "agent_id":"test_agent"},
+        headers=headers
+    )
+    
+    assert response.status_code in (400, 403)
+
+def test_c7_grant_permission_not_callable(server_client):
+    client = server_client['client']
+    headers = server_client['headers']
+    
+    response = client.post(
+        "/v1/ingest",
+        json={"tool":"grant_permission", "agent_id":"test_agent", "params":{"user":"test_user"}},
+        headers=headers
+    )
+    
+    assert response.status_code in (403, 404)
+
+def test_c8_private_methods_not_callable(server_client):
+    client = server_client['client']
+    headers = server_client['headers']
+    
+    response = client.post(
+        "/v1/execute_tool",
+        json={"tool_calls":[{"tool_name":"_private_method", "parameters":{}}], "agent_id":"test_agent"},
+        headers=headers
+    )
+    
+    assert response.status_code == 404
+```

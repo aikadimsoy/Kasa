@@ -1,0 +1,92 @@
+import pytest
+import sqlite3
+import os
+import importlib
+from src.vault.database import Vault
+from src.mcp_server.tools import VaultTools
+from src.mcp_server.server import app
+from fastapi.testclient import TestClient
+
+@pytest.fixture(scope="module")
+def tmp_vault(tmpdir):
+    vault_path = str(tmpdir)
+    os.environ["KASA_VAULT_PATH"] = vault_path
+    yield vault_path
+    # Cleanup if necessary
+
+@pytest.fixture(scope="module")
+def vault(tmp_vault):
+    with Vault(tmp_vault) as v:
+        yield v
+
+@pytest.fixture(scope="module")
+def tools(vault):
+    return VaultTools(vault, "system")
+
+@pytest.fixture(scope="module")
+def server_client():
+    os.environ["KASA_VAULT_PATH"] = str(tmpdir)
+    import src.mcp_server.server as srv
+    importlib.reload(srv)
+    client = TestClient(srv.app, raise_server_exceptions=False)
+    yield {"client": client, "headers": {"Authorization": f"Bearer {srv._BEARER_TOKEN}"}}
+
+def test_schema_has_four_tables(vault):
+    """Test that the database schema has exactly four tables: events, profile, permissions, audit."""
+    conn = vault.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    table_names = {row[0] for row in cursor.fetchall()}
+    assert table_names == {"events", "profile", "permissions", "audit"}
+
+def test_event_roundtrip(tools):
+    """Test that event ingestion returns success and an event ID."""
+    result = tools.event_ingest("smoke", "page_view", {"k": "v"})
+    assert result["status"] == "success"
+    assert isinstance(result["event_id"], int)
+
+def test_event_ingest_rejects_bad_ttl(tools):
+    """Test that event ingestion rejects a TTL of 0 days."""
+    with pytest.raises(ValueError):
+        tools.event_ingest("smoke", "page_view", {"k": "v"}, ttl_days=0)
+
+def test_health_check(server_client):
+    """Test the health check endpoint returns a successful status."""
+    response = server_client["client"].get("/")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+def test_end_to_end_ingest(server_client):
+    """Test the end-to-end ingestion process returns success."""
+    payload = {
+        "tool": "event_ingest",
+        "agent_id": "system",
+        "params": {"source": "smoke", "type": "page_view", "content": {"a": 1}}
+    }
+    response = server_client["client"].post("/v1/ingest", headers=server_client["headers"], json=payload)
+    assert response.status_code == 200
+    assert response.json()["result"]["status"] == "success"
+
+def test_ingest_requires_token(server_client):
+    """Test that ingestion requires a bearer token."""
+    client = server_client["client"]
+    payload = {
+        "tool": "event_ingest",
+        "agent_id": "system",
+        "params": {"source": "smoke", "type": "page_view", "content": {"a": 1}}
+    }
+    response = client.post("/v1/ingest", json=payload)
+    assert response.status_code in (401, 403)
+
+def test_audit_log_written(tools, vault):
+    """Test that the audit log is written after an event ingestion."""
+    tools.event_ingest("smoke", "page_view", {"k": "v"})
+    conn = vault.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM audit")
+    assert cursor.fetchone()[0] > 0
+
+def test_run_module_wires_up():
+    """Test that the run module wires up correctly."""
+    import run
+    assert callable(run.main)

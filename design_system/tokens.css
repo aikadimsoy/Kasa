@@ -1,0 +1,75 @@
+/* ==========================================================================
+   KASA Design System v0.1 — Kanonik Token Kaynağı (SINGLE SOURCE OF TRUTH)
+   --------------------------------------------------------------------------
+   Bu değerler src/browser/browser_window.py içindeki `_DESIGN_CSS` bloğundan
+   BIREBIR çıkarıldı. Tutarlılık kuralı: bir token değişecekse ÖNCE burada
+   değişir, sonra tarayıcıya yansıtılır. (İleride browser_window.py bu dosyayı
+   referans alacak; şimdilik ikisi elle senkron tutulur — bkz. README.md.)
+   ========================================================================== */
+
+/* — Self-host fontlar (KASA MCP sunucusu 8000'de ayaktayken yüklenir;
+     değilse aşağıdaki --kasa-font-* fallback zinciri devreye girer) — */
+@font-face {
+  font-family: 'KasaUI';
+  font-weight: 400;
+  src: url('http://localhost:8000/assets/fonts/inter-400.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'KasaUI';
+  font-weight: 500;
+  src: url('http://localhost:8000/assets/fonts/inter-500.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'KasaUI';
+  font-weight: 600;
+  src: url('http://localhost:8000/assets/fonts/inter-600.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'KasaMono';
+  font-weight: 400;
+  src: url('http://localhost:8000/assets/fonts/jetbrains-mono-400.woff2') format('woff2');
+  font-display: swap;
+}
+
+:root {
+  /* — Marka — */
+  --kasa-primary:       #E02244;
+  --kasa-primary-hover: #C41E3D;
+  --kasa-accent:        #1BA7C2;
+
+  /* — Nötr rampa (koyu → açık) — */
+  --kasa-n950:          #0D1017;  /* en koyu zemin (panel/rail arka) */
+  --kasa-n900:          #12161F;  /* yüzey */
+  --kasa-n800:          #1A2029;  /* yükseltilmiş yüzey / girdi arka */
+  --kasa-n700:          #242B37;  /* kenarlık */
+  --kasa-n500:          #5B6472;  /* ikincil metin / ipucu */
+  --kasa-n300:          #9AA3B2;  /* etiket metni */
+  --kasa-n100:          #E4E7EC;  /* ana metin */
+
+  /* — Anlamsal — */
+  --kasa-secure:        #2FBF71;  /* güvenli durum */
+  --kasa-warning:       #E8A13C;  /* uyarı */
+  --kasa-danger:        #E5484D;  /* tehlike / hata */
+  --kasa-private:       #8B5CF6;  /* gizli / özel mod */
+
+  /* — Yükseklik (gölge) — */
+  --kasa-e1: 0 1px 2px rgba(0,0,0,.24);
+  --kasa-e2: 0 4px 12px rgba(0,0,0,.32);
+  --kasa-e3: 0 12px 32px rgba(0,0,0,.40);
+
+  /* — Hareket — */
+  --kasa-t-micro: 120ms;
+  --kasa-t-std:   200ms;
+  --kasa-ease:    cubic-bezier(0.2,0,0,1);
+
+  /* — Yarıçap (kullanımdaki değerler; token'laştırıldı) — */
+  --kasa-r-sm: 8px;   /* girdi, buton */
+  --kasa-r-md: 12px;  /* kart, rail butonu */
+
+  /* — Tipografi yığını (fallback zinciri) — */
+  --kasa-font-ui:   'KasaUI', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --kasa-font-mono: 'KasaMono', 'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace;
+}

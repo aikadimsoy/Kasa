@@ -1,0 +1,34 @@
+[
+  {
+    "id": "1",
+    "category": "Fingerprint",
+    "name": "Inconsistent navigator spoofing",
+    "tag": "EKSIK",
+    "how_to_test": "Test browser behavior with different language settings, timezones, etc., while comparing against hardcoded de-DE/Berlin values in Layer#1.",
+    "target": "browser"
+  },
+  {
+    "id": "2",
+    "category": "Network-Leak",
+    "name": "WebRTC dual-path filter evasion",
+    "tag": "EKSIK",
+    "how_to_test": "Attempt to leak IP addresses using WebRTC and verify if the dual-path filter successfully blocks the attempt.",
+    "target": "browser"
+  },
+  {
+    "id": "3",
+    "category": "Vault-Integrity",
+    "name": "Tool-definition poisoning detector",
+    "tag": "EKSIK",
+    "how_to_test": "Try injecting malicious tool definitions or payloads and check for detection by the proposed system.",
+    "target": "mcp"
+  },
+  {
+    "id": "4",
+    "category": "Fingerprint",
+    "name": "AudioContext/font noise inconsistency",
+    "tag": "EKSIK",
+    "how_to_test": "Generate audiovisual content using different fonts, noises, etc., and verify if Layer#3 consistency engine flags inconsistencies.",
+    "target": "browser"
+  }
+]

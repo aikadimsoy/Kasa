@@ -1,0 +1,17 @@
+# kasa.toml — Project KASA Configuration
+# Copy to kasa.toml and customize. Bearer token is auto-generated on first run.
+
+[server]
+host = "127.0.0.1"
+port = 8000
+bearer_token = ""   # auto-filled on first run
+allowed_origins = ["http://localhost", "http://127.0.0.1", "null"]
+
+[vault]
+path = "~/.kasa/vault"   # use absolute path or ~ for home dir
+ttl_days = 30
+
+[distill]
+model = "qwen2.5:7b"
+ollama_url = "http://localhost:11434"
+schedule_hour = 2        # 02:00 local time

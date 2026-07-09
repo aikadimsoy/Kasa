@@ -1,0 +1,862 @@
+[
+  {
+    "cycle": 1,
+    "ts": "2026-07-07T09:24:58.143860+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 2,
+    "ts": "2026-07-07T09:32:05.390758+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 3,
+    "ts": "2026-07-07T09:39:11.122540+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 4,
+    "ts": "2026-07-07T09:46:15.138230+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 5,
+    "ts": "2026-07-07T09:53:13.976181+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 6,
+    "ts": "2026-07-07T10:02:44.963262+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 7,
+    "ts": "2026-07-07T10:12:21.680020+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 8,
+    "ts": "2026-07-07T10:19:52.057802+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 9,
+    "ts": "2026-07-07T10:27:30.500238+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 10,
+    "ts": "2026-07-07T10:35:01.977798+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 11,
+    "ts": "2026-07-07T10:42:45.019564+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 12,
+    "ts": "2026-07-07T10:50:44.923373+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 13,
+    "ts": "2026-07-07T10:58:53.222002+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 14,
+    "ts": "2026-07-07T11:09:46.453162+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 15,
+    "ts": "2026-07-07T11:18:21.439229+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 16,
+    "ts": "2026-07-07T11:25:28.011900+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 17,
+    "ts": "2026-07-07T11:33:10.382929+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 18,
+    "ts": "2026-07-07T11:40:28.291986+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 19,
+    "ts": "2026-07-07T11:47:41.384718+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  },
+  {
+    "cycle": 20,
+    "ts": "2026-07-07T11:54:50.772014+00:00",
+    "results": [
+      {
+        "id": "distill-injection",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "authz-c5c7c8",
+        "outcome": "green",
+        "iters": 0,
+        "edited": false
+      },
+      {
+        "id": "kasa-health-gate",
+        "outcome": "blocked",
+        "iters": 5
+      },
+      {
+        "id": "fingerprint-b1-race",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b2-webgl",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b3-accept-language",
+        "outcome": "needs_test",
+        "iters": 0
+      },
+      {
+        "id": "fingerprint-b4-tz",
+        "outcome": "needs_test",
+        "iters": 0
+      }
+    ]
+  }
+]

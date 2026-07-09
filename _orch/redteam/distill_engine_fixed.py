@@ -1,0 +1,143 @@
+import sqlite3
+import json
+import time
+import re
+from datetime import datetime, timedelta
+import urllib.request
+
+OLLAMA_MODEL = "qwen2.5:7b"
+ALLOWED_KEY_PREFIXES = ("user.preferences.", "user.habits.", "user.profile.")
+
+# Damıtma promptu: modele ham olayları verip JSON fact dizisi istiyoruz
+DISTILL_PROMPT_TMPL = """You are a memory distillation engine. Extract durable profile facts from the user interaction events below. Output ONLY a raw JSON array, no markdown, no explanation.
+
+Format: [{{"key": "user.preferences.example", "value": {{"text": "short fact", "confidence": 0.85}}, "provenance_event_ids": [1, 2]}}]
+
+Rules:
+- Keys: dot notation (e.g. user.preferences.seating, user.habits.order_time)
+- Only facts that clearly repeat or are explicitly stated
+- provenance_event_ids: integers matching the event id values below
+- If no clear facts, return []
+
+Events (JSON):
+<<<UNTRUSTED_EVENT_DATA>>>
+{events_json}
+<<<END_UNTRUSTED_EVENT_DATA>>>
+"""
+
+class DistillEngine:
+    def __init__(self, db_path, ollama_url):
+        self.db_path = db_path
+        self.ollama_url = ollama_url
+
+    def run_batch(self, max_events=100):
+        processed = 0
+        facts_committed = 0
+        errors = []
+
+        # Veritabanına bağlan; distilled kolonu yoksa güvenli şekilde ekle
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("ALTER TABLE events ADD COLUMN distilled INTEGER DEFAULT 0")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # Kolon zaten var
+
+        # Süresi dolmamış ve henüz damıtılmamış olayları oku (ttl_expiry REAL/Unix timestamp)
+        now_ts = time.time()
+        cursor.execute("""
+            SELECT id, timestamp, session_id, source, type, content, ttl_expiry
+            FROM events
+            WHERE ttl_expiry > ? AND distilled = 0
+            LIMIT ?
+        """, (now_ts, max_events))
+        events = cursor.fetchall()
+
+        # Group events into a compact JSON summary
+        event_summaries = []
+        for event in events:
+            try:
+                content = json.loads(event[5]) if event[5] else {}
+            except json.JSONDecodeError as e:
+                errors.append(f"Failed to decode JSON content: {e}")
+                continue
+            # event[1] SQLite'dan TEXT olarak gelir — doğrudan kullan
+            event_summary = {
+                'id': event[0],
+                'timestamp': str(event[1]),
+                'session_id': event[2],
+                'source': event[3],
+                'type': event[4],
+                'content': content
+            }
+            event_summaries.append(event_summary)
+
+        # Olayları <=2000 karakter JSON string'e sıkıştır
+        events_json = json.dumps(event_summaries, ensure_ascii=False)[:2000]
+
+        # Ollama /api/generate için doğru istek yapısını oluştur
+        ollama_payload = json.dumps({
+            "model": OLLAMA_MODEL,
+            "prompt": DISTILL_PROMPT_TMPL.format(events_json=events_json),
+            "stream": False,
+            "options": {"temperature": 0.1, "num_predict": 1024}
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            self.ollama_url,
+            data=ollama_payload,
+            headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as response:
+                response_body = response.read().decode('utf-8')
+        except Exception as e:
+            errors.append(f"Ollama cagirma hatasi: {e}")
+            return {'processed': len(events), 'facts_committed': facts_committed, 'errors': errors}
+
+        # Ollama yanıtından 'response' alanını al ve JSON array parse et
+        try:
+            ollama_resp = json.loads(response_body)
+            raw_text = ollama_resp.get("response", "")
+            facts = json.loads(raw_text)
+        except Exception as e:
+            errors.append(f"Failed to parse Ollama response: {e}")
+            return {'processed': len(events), 'facts_committed': facts_committed, 'errors': errors}
+
+        # QC loop
+        for fact in facts:
+            if not any(fact['key'].startswith(prefix) for prefix in ALLOWED_KEY_PREFIXES):
+                errors.append(f"Fact key '{fact['key']}' does not start with an allowed prefix.")
+                continue
+
+            # Insert or update the fact in the database
+            try:
+                cursor.execute("""
+                    INSERT INTO facts (key, value, provenance_event_ids)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value, provenance_event_ids = excluded.provenance_event_ids
+                """, (fact['key'], json.dumps(fact['value']), json.dumps(fact['provenance_event_ids'])))
+                facts_committed += 1
+            except Exception as e:
+                errors.append(f"Database error: {e}")
+
+        # Mark events as distilled
+        event_ids = [event[0] for event in events]
+        cursor.executemany("UPDATE events SET distilled = 1 WHERE id = ?", [(id,) for id in event_ids])
+        conn.commit()
+        conn.close()
+
+        return {'processed': len(events), 'facts_committed': facts_committed, 'errors': errors}
+
+    def run_nightly(self):
+        # Implement nightly processing logic here
+        pass
+
+    def upsert(self, key, value, provenance_event_ids):
+        # Implement upsert logic here
+        pass
+
+if __name__ == "__main__":
+    engine = DistillEngine(db_path="events.db", ollama_url="http://ollama.example.com/api/generate")
+    result = engine.run_batch()
+    print(result)

@@ -1,0 +1,115 @@
+ ```python
+import http.server
+import json
+import os
+import time
+import hashlib
+import threading
+
+class FingerprintHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        fp = {
+            'js': {
+                'userAgent': self.headers.get('User-Agent', ''),
+                'platform': os.uname().sysname,
+                'language': self.headers.get('Accept-Language', '').split(',')[0],
+                'languages': [],  # Not available in headers
+                'hardwareConcurrency': os.cpu_count(),
+                'deviceMemory': float(os.environ.get('PROCESSOR_ARCHITECTURE', 'x86')) == 32 and 2 or 4,
+                'screen': [1920, 1080, 24],  # Example values
+                'timezone': time.strftime('%Z'),
+                'tzOffset': -time.localtime().tm_gmtoff // 3600,
+                'canvasHash': self.generate_canvas_hash(),
+                'webglVendor': self.get_webgl_info('UNMASKED_VENDOR_WEBGL'),
+                'webglRenderer': self.get_webgl_info('UNMASKED_RENDERER_WEBGL'),
+                'webrtc': []  # Placeholder for WebRTC fingerprinting
+            },
+            'http': {
+                'acceptLanguage': self.headers.get('Accept-Language', ''),
+                'userAgent': self.headers.get('User-Agent', ''),
+                'secChUa': self.headers.get('sec-ch-ua', ''),
+                'clientIp': self.client_address[0]
+            }
+        }
+
+        html = f"""
+        <html>
+        <head><title>Fingerprint Collector</title></head>
+        <body>
+            <script>
+                var fp = {json.dumps(fp)};
+                fetch('/collect', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify(fp)
+                }});
+            </script>
+            <p>KASA adversary site — fingerprint captured</p>
+        </body>
+        </html>
+        """
+        self.wfile.write(bytes(html, "utf8"))
+
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        fp = json.loads(post_data)
+
+        record = {
+            "ts": time.time(),
+            "http": {
+                'acceptLanguage': self.headers.get('Accept-Language', ''),
+                'userAgent': self.headers.get('User-Agent', ''),
+                'secChUa': self.headers.get('sec-ch-ua', ''),
+                'clientIp': self.client_address[0]
+            },
+            "js": fp['js']
+        }
+
+        with open(os.path.join(self.server.HERE, "captures.jsonl"), 'a') as f:
+            f.write(json.dumps(record) + '\n')
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        response = {"ok": True}
+        self.wfile.write(bytes(json.dumps(response), "utf8"))
+
+    def generate_canvas_hash(self):
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            img = Image.new('RGB', (100, 50), color = (255, 255, 255))
+            d = ImageDraw.Draw(img)
+            font = ImageFont.load_default()
+            d.text((10,10), "KASA-fp-☃", fill=(0,0,0), font=font)
+            return hashlib.md5(img.tobytes()).hexdigest()
+        except Exception as e:
+            print("Canvas error:", str(e))
+            return ""
+
+    def get_webgl_info(self, param):
+        try:
+            from webbrowser import get
+            gl = get('gl').get_extension('WEBGL')
+            if hasattr(gl, param):
+                return getattr(gl, param)()
+        except Exception as e:
+            print("WebGL error:", str(e))
+            return ""
+
+class ThreadingHTTPServer(http.server.ThreadingMixIn, http.server.HTTPServer):
+    def __init__(self, server_address, RequestHandlerClass=FingerprintHandler):
+        self.HERE = os.path.dirname(__file__) if "__file__" in globals() else "."
+        super().__init__(server_address, RequestHandlerClass)
+
+def main():
+    print("Server running at http://127.0.0.1:8901/")
+    server = ThreadingHTTPServer(('127.0.0.1', 8901), FingerprintHandler)
+    server.serve_forever()
+
+if __name__ == "__main__":
+    main()
+```

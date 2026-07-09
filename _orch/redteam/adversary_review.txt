@@ -1,0 +1,112 @@
+```python
+import http.server
+import json
+import os
+import time
+import hashlib
+import threading
+
+class FingerprintHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        fp = {
+            'js': {
+                'userAgent': '',
+                'platform': os.uname().sysname,
+                'language': '',
+                'languages': [],
+                'hardwareConcurrency': os.cpu_count(),
+                'deviceMemory': 4,  # Simplified device memory detection
+                'screen': [1920, 1080, 24],
+                'timezone': time.strftime('%Z'),
+                'tzOffset': -time.localtime().tm_gmtoff // 3600,
+                'canvasHash': '',
+                'webglVendor': '',
+                'webglRenderer': '',
+                'webrtc': []
+            },
+            'http': {
+                'acceptLanguage': self.headers.get('Accept-Language', ''),
+                'userAgent': self.headers.get('User-Agent', ''),
+                'secChUa': self.headers.get('sec-ch-ua', ''),
+                'clientIp': self.client_address[0]
+            }
+        }
+
+        html = f"""
+        <html>
+        <head><title>Fingerprint Collector</title></head>
+        <body>
+            <script>
+                try {{
+                    var fp = {json.dumps(fp)};
+                    fetch('/collect', {{
+                        method: 'POST',
+                        headers: {{'Content-Type': 'application/json'}},
+                        body: JSON.stringify(fp)
+                    }}).then(response => response.json()).then(data => {{
+                        if (data.ok) {{
+                            console.log('Fingerprint collected successfully');
+                        }} else {{
+                            console.error('Failed to collect fingerprint');
+                        }}
+                    }});
+                }} catch (e) {{
+                    console.error('Error collecting fingerprint:', e);
+                }}
+            </script>
+            <p>KASA adversary site — fingerprint captured</p>
+        </body>
+        </html>
+        """
+        self.wfile.write(bytes(html, "utf8"))
+
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        try:
+            fp = json.loads(post_data)
+        except json.JSONDecodeError:
+            self.send_response(400)
+            self.end_headers()
+            response = {"ok": False, "error": "Invalid JSON body"}
+            self.wfile.write(bytes(json.dumps(response), "utf8"))
+            return
+
+        record = {
+            "ts": time.time(),
+            "http": {
+                'acceptLanguage': self.headers.get('Accept-Language', ''),
+                'userAgent': self.headers.get('User-Agent', ''),
+                'secChUa': self.headers.get('sec-ch-ua', ''),
+                'clientIp': self.client_address[0]
+            },
+            "js": fp['js']
+        }
+
+        with open(os.path.join(self.server.HERE, "captures.jsonl"), 'a') as f:
+            f.write(json.dumps(record) + '\n')
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        response = {"ok": True}
+        self.wfile.write(bytes(json.dumps(response), "utf8"))
+
+class ThreadingHTTPServer(http.server.ThreadingMixIn, http.server.HTTPServer):
+    def __init__(self, server_address, RequestHandlerClass=FingerprintHandler):
+        self.HERE = os.path.dirname(__file__) if "__file__" in globals() else "."
+        super().__init__(server_address, RequestHandlerClass)
+
+def main():
+    print("Server running at http://127.0.0.1:8901/")
+    server = ThreadingHTTPServer(('127.0.0.1', 8901), FingerprintHandler)
+    server.serve_forever()
+
+if __name__ == "__main__":
+    main()
+```
+
+**Summary:** Python dosyası, belirtilen kontrol listesine göre düzeltilmiştir ve işlevsellikler doğrultusunda yeniden yapılandırılmıştır.

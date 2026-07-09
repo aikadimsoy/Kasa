@@ -1,0 +1,88 @@
+```json
+{
+  "manifest_version": 3,
+  "name": "KASA Memory",
+  "version": "0.2.0",
+  "description": "Local memory vault connector",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {}
+  }
+}
+```
+```javascript
+(function() {
+  function getSummary(text) {
+    return text.slice(0, 500).replace(/\s+/g, ' ').trim();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const url = location.href;
+    const title = document.title;
+    const summary = getSummary(document.body.innerText);
+    chrome.runtime.sendMessage({ type: "PAGE_VISIT", data: { url, title, summary } });
+  });
+})();
+```
+```javascript
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("KASA Memory extension installed");
+});
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "PAGE_VISIT") {
+    fetch("http://localhost:8000/v1/execute_tool", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tool: "event_ingest",
+        agent_id: "browser_extension",
+        params: request.data
+      })
+    }).catch(err => console.warn("KASA: MCP unreachable", err));
+  }
+});
+```
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>KASA Memory</title>
+  <style>
+    body { background-color: #1a1a2e; color: white; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>KASA Memory</h1>
+  <p id="status">MCP: offline</p>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      fetch("http://localhost:8000/")
+        .then(response => response.ok ? "connected" : "offline")
+        .then(status => document.getElementById('status').innerText = `MCP: ${status}`)
+        .catch(() => document.getElementById('status').innerText = 'MCP: offline');
+    });
+  </script>
+</body>
+</html>
+```

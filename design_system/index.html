@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KASA Design System v0.1</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--kasa-n950);
+    color: var(--kasa-n100);
+    font-family: var(--kasa-font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  /* Header */
+  header { border-bottom: 1px solid var(--kasa-n700); padding-bottom: 24px; margin-bottom: 40px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--kasa-primary); box-shadow: 0 0 0 4px rgba(224,34,68,.18); }
+  h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--kasa-n500); font-size: 13px; margin-top: 6px; }
+  .sub code { font-family: var(--kasa-font-mono); color: var(--kasa-n300); font-size: 12px; }
+
+  section { margin-top: 48px; }
+  h2 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--kasa-n500); margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--kasa-n800);
+  }
+  .grid { display: grid; gap: 12px; }
+  .g-color   { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .g-comp    { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); align-items: start; }
+
+  /* Color swatch */
+  .swatch { border: 1px solid var(--kasa-n700); border-radius: var(--kasa-r-md); overflow: hidden; background: var(--kasa-n900); }
+  .swatch .chip { height: 64px; }
+  .swatch .meta { padding: 8px 10px; }
+  .swatch .name { font-size: 12px; font-weight: 500; color: var(--kasa-n100); }
+  .swatch .hex  { font-family: var(--kasa-font-mono); font-size: 11px; color: var(--kasa-n500); text-transform: uppercase; }
+  .swatch .role { font-size: 11px; color: var(--kasa-n500); margin-top: 2px; }
+
+  /* Type specimens */
+  .type-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--kasa-n800); }
+  .type-row .lbl { width: 130px; flex-shrink: 0; font-family: var(--kasa-font-mono); font-size: 11px; color: var(--kasa-n500); }
+  .type-row .spec { color: var(--kasa-n100); }
+  .mono { font-family: var(--kasa-font-mono); }
+
+  /* Elevation */
+  .elev { background: var(--kasa-n800); border: 1px solid var(--kasa-n700); border-radius: var(--kasa-r-md); padding: 20px; text-align: center; }
+  .elev .lbl { font-family: var(--kasa-font-mono); font-size: 11px; color: var(--kasa-n300); }
+  .elev.e1 { box-shadow: var(--kasa-e1); }
+  .elev.e2 { box-shadow: var(--kasa-e2); }
+  .elev.e3 { box-shadow: var(--kasa-e3); }
+
+  /* Component demo card */
+  .demo { border: 1px solid var(--kasa-n800); border-radius: var(--kasa-r-md); background: var(--kasa-n900); padding: 16px; }
+  .demo .title { font-size: 12px; color: var(--kasa-n500); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Real components (tarayıcıdaki değerlerle birebir) */
+  .k-btn {
+    border: none; border-radius: var(--kasa-r-sm); padding: 8px 14px; cursor: pointer;
+    font-family: var(--kasa-font-ui); font-size: 13px; color: #fff; background: var(--kasa-primary);
+    transition: background var(--kasa-t-std) var(--kasa-ease);
+  }
+  .k-btn:hover { background: var(--kasa-primary-hover); }
+  .k-btn.ghost { background: var(--kasa-n800); color: var(--kasa-n100); border: 1px solid var(--kasa-n700); }
+  .k-input {
+    width: 100%; background: var(--kasa-n800); color: var(--kasa-n100); border: 1px solid var(--kasa-n700);
+    border-radius: var(--kasa-r-sm); padding: 6px 8px; font-family: var(--kasa-font-ui); font-size: 13px; outline: none;
+  }
+  .k-input:focus { border-color: var(--kasa-accent); }
+  .k-card {
+    border: 1px solid var(--kasa-n700); border-radius: var(--kasa-r-md); padding: 10px 12px; background: var(--kasa-n900);
+    cursor: pointer; transition: border-color var(--kasa-t-micro) var(--kasa-ease);
+  }
+  .k-card:hover { border-color: var(--kasa-primary); }
+  .k-card.selected { border-color: var(--kasa-primary); border-width: 2px; }
+  .k-card strong { display: block; color: var(--kasa-n100); font-size: 13px; margin-bottom: 2px; }
+  .k-card span { color: var(--kasa-n500); font-size: 11px; line-height: 1.4; }
+
+  /* Rail + panel mock */
+  .chrome { display: flex; height: 220px; border: 1px solid var(--kasa-n700); border-radius: var(--kasa-r-md); overflow: hidden; }
+  .rail { width: 56px; background: var(--kasa-n900); display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 12px; box-shadow: var(--kasa-e2); }
+  .rail button { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: var(--kasa-r-md); color: var(--kasa-n300); cursor: pointer; }
+  .rail button:hover { background: var(--kasa-n800); }
+  .rail button.active { background: var(--kasa-n800); color: var(--kasa-n100); }
+  .rail svg { width: 20px; height: 20px; }
+  .pnl { flex: 1; background: var(--kasa-n950); padding: 16px; }
+  .pnl h3 { font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--kasa-n100); }
+  .pnl label { display: block; margin: 10px 0; color: var(--kasa-n300); font-size: 13px; }
+
+  /* Status ring */
+  .ring { display: inline-flex; align-items: center; gap: 8px; margin-right: 20px; font-size: 12px; color: var(--kasa-n300); }
+  .ring .r { width: 12px; height: 12px; border-radius: 50%; }
+  .stack > * + * { margin-top: 10px; }
+  .foot { margin-top: 64px; color: var(--kasa-n500); font-size: 12px; border-top: 1px solid var(--kasa-n800); padding-top: 16px; }
+  .foot code { font-family: var(--kasa-font-mono); color: var(--kasa-n300); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><span class="dot"></span><h1>KASA Design System</h1></div>
+    <div class="sub">v0.1 · tek kaynak: <code>tokens.css</code> · Egemen, yerel-öncelikli tarayıcı için görsel dil</div>
+  </header>
+
+  <!-- COLORS -->
+  <section>
+    <h2>Renk — Marka</h2>
+    <div class="grid g-color">
+      <div class="swatch"><div class="chip" style="background:var(--kasa-primary)"></div><div class="meta"><div class="name">primary</div><div class="hex">#E02244</div><div class="role">ana eylem, vurgu</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-primary-hover)"></div><div class="meta"><div class="name">primary-hover</div><div class="hex">#C41E3D</div><div class="role">hover durumu</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-accent)"></div><div class="meta"><div class="name">accent</div><div class="hex">#1BA7C2</div><div class="role">odak / bağlantı</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Renk — Nötr rampa</h2>
+    <div class="grid g-color">
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n950)"></div><div class="meta"><div class="name">n950</div><div class="hex">#0D1017</div><div class="role">en koyu zemin</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n900)"></div><div class="meta"><div class="name">n900</div><div class="hex">#12161F</div><div class="role">yüzey</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n800)"></div><div class="meta"><div class="name">n800</div><div class="hex">#1A2029</div><div class="role">yükseltilmiş</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n700)"></div><div class="meta"><div class="name">n700</div><div class="hex">#242B37</div><div class="role">kenarlık</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n500)"></div><div class="meta"><div class="name">n500</div><div class="hex">#5B6472</div><div class="role">ikincil metin</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n300)"></div><div class="meta"><div class="name">n300</div><div class="hex">#9AA3B2</div><div class="role">etiket</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-n100)"></div><div class="meta"><div class="name">n100</div><div class="hex">#E4E7EC</div><div class="role">ana metin</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Renk — Anlamsal</h2>
+    <div class="grid g-color">
+      <div class="swatch"><div class="chip" style="background:var(--kasa-secure)"></div><div class="meta"><div class="name">secure</div><div class="hex">#2FBF71</div><div class="role">güvenli durum</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-warning)"></div><div class="meta"><div class="name">warning</div><div class="hex">#E8A13C</div><div class="role">uyarı</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-danger)"></div><div class="meta"><div class="name">danger</div><div class="hex">#E5484D</div><div class="role">tehlike / hata</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--kasa-private)"></div><div class="meta"><div class="name">private</div><div class="hex">#8B5CF6</div><div class="role">gizli / özel mod</div></div></div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY -->
+  <section>
+    <h2>Tipografi</h2>
+    <div class="type-row"><div class="lbl">UI / 24 · 600</div><div class="spec" style="font-size:24px;font-weight:600;letter-spacing:-0.01em">Egemen hafıza, sizin kontrolünüzde</div></div>
+    <div class="type-row"><div class="lbl">UI / 16 · 600</div><div class="spec" style="font-size:16px;font-weight:600">Panel başlığı — Gizlilik Seviyesi</div></div>
+    <div class="type-row"><div class="lbl">UI / 14 · 400</div><div class="spec" style="font-size:14px">Gövde metni. Ajanlar gelir gider; hafızanız sizindir.</div></div>
+    <div class="type-row"><div class="lbl">UI / 13 · 400</div><div class="spec" style="font-size:13px;color:var(--kasa-n300)">Etiket / ikincil — Arama motoru</div></div>
+    <div class="type-row"><div class="lbl">UI / 11 · 400</div><div class="spec" style="font-size:11px;color:var(--kasa-n500)">İpucu — Yeni sayfada geçerli olur.</div></div>
+    <div class="type-row"><div class="lbl">Mono / 13</div><div class="spec mono" style="font-size:13px">profile_read(scope) · qwen2.5:7b</div></div>
+  </section>
+
+  <!-- ELEVATION -->
+  <section>
+    <h2>Yükseklik (gölge)</h2>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="elev e1"><div class="lbl">--kasa-e1</div></div>
+      <div class="elev e2"><div class="lbl">--kasa-e2</div></div>
+      <div class="elev e3"><div class="lbl">--kasa-e3</div></div>
+    </div>
+  </section>
+
+  <!-- MOTION + RADII -->
+  <section>
+    <h2>Hareket & Yarıçap</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      <div class="demo"><div class="title">t-micro</div><span class="mono" style="font-size:12px;color:var(--kasa-n300)">120ms</span><div style="color:var(--kasa-n500);font-size:12px;margin-top:4px">hover, küçük geçiş</div></div>
+      <div class="demo"><div class="title">t-std</div><span class="mono" style="font-size:12px;color:var(--kasa-n300)">200ms</span><div style="color:var(--kasa-n500);font-size:12px;margin-top:4px">panel, buton</div></div>
+      <div class="demo"><div class="title">ease</div><span class="mono" style="font-size:12px;color:var(--kasa-n300)">cubic-bezier(0.2,0,0,1)</span></div>
+      <div class="demo"><div class="title">radius</div><span class="mono" style="font-size:12px;color:var(--kasa-n300)">r-sm 8px · r-md 12px</span></div>
+    </div>
+  </section>
+
+  <!-- COMPONENTS -->
+  <section>
+    <h2>Bileşenler</h2>
+    <div class="grid g-comp">
+
+      <div class="demo">
+        <div class="title">Butonlar</div>
+        <div class="stack">
+          <button class="k-btn">Kaydet</button>
+          <button class="k-btn ghost">Tor (127.0.0.1:9150)</button>
+        </div>
+      </div>
+
+      <div class="demo">
+        <div class="title">Girdi</div>
+        <div class="stack">
+          <input class="k-input" type="text" placeholder="socks5://127.0.0.1:9150">
+          <input class="k-input" type="password" value="••••••">
+        </div>
+      </div>
+
+      <div class="demo">
+        <div class="title">Kart (seçilebilir)</div>
+        <div class="stack">
+          <div class="k-card selected"><strong>Sıkı</strong><span>Standart + Canvas/WebGL zehirleme + tracker çerez.</span></div>
+          <div class="k-card"><strong>Standart</strong><span>Konum, dil, saat, ekran sahte.</span></div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <div class="title">Durum halkası</div>
+        <div class="stack">
+          <div><span class="ring"><span class="r" style="background:var(--kasa-secure)"></span>güvenli</span></div>
+          <div><span class="ring"><span class="r" style="background:var(--kasa-warning)"></span>uyarı</span></div>
+          <div><span class="ring"><span class="r" style="background:var(--kasa-danger)"></span>tehlike</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CHROME MOCK -->
+  <section>
+    <h2>Rail + Panel (tarayıcı chrome)</h2>
+    <div class="chrome">
+      <div class="rail">
+        <button title="Menü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>
+        <button class="active" title="Gizlilik"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></button>
+        <button title="AI Modeli"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></button>
+        <button title="Gelişmiş (Kilitli)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
+      </div>
+      <div class="pnl">
+        <h3>Gizlilik Seviyesi</h3>
+        <div class="k-card selected"><strong>Sıkı</strong><span>Standart + Canvas/WebGL(1+2) zehirleme + tracker çerez zehirleme.</span></div>
+        <label style="margin-top:12px">Yeni sayfada geçerli olur.</label>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    Kanonik kaynak: <code>design_system/tokens.css</code>. Tarayıcı (<code>src/browser/browser_window.py</code> →
+    <code>_DESIGN_CSS</code>) şu an aynı değerleri satır-içi taşıyor; değişiklik önce burada yapılır, sonra
+    oraya yansıtılır. DesignSync ile ileride claude.ai/design'a senkron edilebilir (bkz. README.md).
+  </div>
+
+</div>
+</body>
+</html>

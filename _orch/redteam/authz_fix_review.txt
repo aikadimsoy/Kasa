@@ -1,0 +1,194 @@
+```python
+# kasa/src/mcp_server/server.py
+
+"""
+MCP (Model Context Protocol) sunucusunu çalıştıran ana dosya.
+Bu sunucu, localhost üzerinde bir HTTP sunucusu başlatır ve
+ajanların Kasa (Vault) ile güvenli bir şekilde etkileşime girmesini
+sağlayan araçları (tools) bir API üzerinden sunar.
+"""
+
+import os
+import time
+import secrets
+import asyncio
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from fastapi.staticfiles import StaticFiles
+
+from ..vault.database import Vault
+from .tools import VaultTools
+from ..config import load_config, get_or_create_bearer_token
+import pathlib
+
+# -- Pydantic Modelleri (API şeması için) --
+
+class ToolCall(BaseModel):
+    tool_name: str
+    parameters: Dict[str, Any]
+
+class ExecuteToolRequest(BaseModel):
+    tool_calls: List[ToolCall]
+    agent_id: str = Field(..., description="Araçları çalıştıran ajanın kimliği.")
+
+class ToolResult(BaseModel):
+    tool_name: str
+    result: Dict[str, Any]
+
+class ExecuteToolResponse(BaseModel):
+    results: List[ToolResult]
+
+class SimpleToolRequest(BaseModel):
+    tool: str
+    agent_id: str = "browser_extension"
+    params: Dict[str, Any] = {}
+
+# -- Bağımlılıklar (Dependencies) --
+
+# Config önce yüklenir — VAULT_PATH ve token burada belirlenir
+_CONFIG_PATH = pathlib.Path(__file__).parent.parent.parent / "kasa.toml"
+_cfg = load_config(_CONFIG_PATH)
+_BEARER_TOKEN = get_or_create_bearer_token(_cfg, _CONFIG_PATH)
+_ALLOWED_ORIGINS = _cfg["server"]["allowed_origins"]
+
+_vault_path_raw = os.environ.get("KASA_VAULT_PATH") or _cfg["vault"]["path"]
+VAULT_PATH = os.path.expanduser(_vault_path_raw)
+VAULT_INSTANCE = Vault(vault_path=VAULT_PATH)
+
+RESERVED_AGENT_IDS = {"system"}
+PUBLIC_TOOLS = {"event_ingest", "profile_read", "profile_write", "forget", "audit_read", "prune_expired_events"}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Uygulama ömrü: vault bağla, şema kur, kapat."""
+    from ..vault.schema import ALL_TABLES, ALL_INDEXES
+    VAULT_INSTANCE.connect()
+    conn = VAULT_INSTANCE.get_connection()
+    for sql in ALL_TABLES + ALL_INDEXES:
+        conn.execute(sql)
+    
+    # browser agent icin events:write otomatik izni (startup)
+    conn.execute(
+        "INSERT OR IGNORE INTO permissions (agent_id, scope, granted_at) VALUES (?, ?, ?)",
+        ("browser", "events:write", time.time())
+    )
+    conn.commit()
+    
+    yield
+    VAULT_INSTANCE.close()
+
+def get_vault() -> Vault:
+    """FastAPI bağımlılığı: Vault nesnesini döndürür."""
+    return VAULT_INSTANCE
+
+# -- FastAPI Uygulaması --
+
+app = FastAPI(
+    title="Project KASA MCP Server",
+    description="Ajanlar için yerel, güvenli hafıza kasası.",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# Self-hosted fontlar ve statik varlıklar (tarayıcı toolbar'ı kullanır)
+_ASSETS_DIR = pathlib.Path(__file__).parent.parent.parent / "assets"
+if _ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# Bearer token authentication için gerekli olan dependency'yi tanımlayalım
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Security
+
+_security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(_security)):
+    if not secrets.compare_digest(credentials.credentials, _BEARER_TOKEN):
+        raise HTTPException(status_code=401, detail="Geçersiz token.")
+
+# -- Endpoints --
+
+@app.post("/v1/execute_tool", response_model=ExecuteToolResponse)
+async def execute_tool(
+    request: ExecuteToolRequest,
+    vault: Vault = Depends(get_vault),
+    _: None = Security(verify_token)  # Bearer token dependency
+):
+    """
+    Bir veya daha fazla aracı (tool) çalıştırır.
+    """
+    if request.agent_id in RESERVED_AGENT_IDS:
+        raise HTTPException(status_code=403, detail="agent_id ayrilmis (system ag disindan iddia edilemez).")
+    
+    tool_handler = VaultTools(vault, agent_id=request.agent_id)
+    response_results = []
+
+    for tool_call in request.tool_calls:
+        tool_name = tool_call.tool_name
+        params = tool_call.parameters
+
+        if tool_name not in PUBLIC_TOOLS:
+            raise HTTPException(status_code=404, detail=f"Araç bulunamadı: '{tool_name}'")
+
+        try:
+            method = getattr(tool_handler, tool_name)
+            # TODO: Asenkron araçları destekle
+            result = method(**params)
+            response_results.append(ToolResult(tool_name=tool_name, result=result))
+
+        except PermissionError as e:
+            raise HTTPException(status_code=403, detail=str(e))
+        except TypeError as e:
+            # Yanlış parametreler için
+            raise HTTPException(status_code=422, detail=f"'{tool_name}' aracı için geçersiz parametreler: {e}")
+
+    return ExecuteToolResponse(results=response_results)
+
+@app.post("/v1/ingest")
+async def ingest(
+    request: SimpleToolRequest,
+    vault: Vault = Depends(get_vault),
+    _: None = Security(verify_token),
+):
+    """Basit tek-araç endpoint'i (browser extension + Native Messaging icin)."""
+    if request.agent_id in RESERVED_AGENT_IDS:
+        raise HTTPException(status_code=403, detail="agent_id ayrilmis (system ag disindan iddia edilemez).")
+    
+    if request.tool not in PUBLIC_TOOLS:
+        raise HTTPException(status_code=404, detail=f"Araç bulunamadı: '{request.tool}'")
+
+    try:
+        method = getattr(tool_handler, request.tool)
+        # TODO: Asenkron araçları destekle
+        result = method(**request.params)
+        return {"result": result}
+
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except TypeError as e:
+        raise HTTPException(status_code=422, detail=f"Geçersiz parametreler: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/")
+async def health_check():
+    """Health check — auth gerektirmez."""
+    return {"status": "ok", "version": "0.2.0"}
+
+def start_server(host: str = "127.0.0.1", port: int = 8000):
+    print(f"[KASA] MCP sunucusu baslatiliyor: http://{host}:{port}")
+    uvicorn.run(app, host=host, port=port)
+
+if __name__ == "__main__":
+    start_server()
+```

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>KASA Memory</title>
+  <style>
+    body { background-color: #1a1a2e; color: white; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>KASA Memory</h1>
+  <p id="status">MCP: offline</p>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      fetch("http://localhost:8000/")
+        .then(response => response.ok ? "connected" : "offline")
+        .then(status => document.getElementById('status').innerText = `MCP: ${status}`)
+        .catch(() => document.getElementById('status').innerText = 'MCP: offline');
+    });
+  </script>
+</body>
+</html>

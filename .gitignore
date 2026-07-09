@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Vault DB: rollback'i tam-kopya yedegi (d:\kasa_backup_*) + L2 migration .bak/export_vault
+# ile korunuyor. Git yalniz KODU izler; binary DB'yi izlemez (diff kirliligi + gizli-veri).
+kasa.db
+kasa.db-wal
+kasa.db-shm
+*.db-wal
+*.db-shm
+
+# Yerel model / orch runtime ciktilari (varsa) - kod degil
+_orch/**/tasks/
+*.log

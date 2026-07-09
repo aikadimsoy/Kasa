@@ -1,0 +1,30 @@
+{
+    "targets": [
+        {
+            "name": "local-qwen",
+            "kind": "ollama",
+            "base": "http://127.0.0.1:11434",
+            "model": "qwen2.5:7b"
+        },
+        {
+            "name": "local-deepseek",
+            "kind": "ollama",
+            "base": "http://127.0.0.1:11434",
+            "model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+        },
+        {
+            "name": "my-cloud-panel",
+            "kind": "openai",
+            "base": "https://api.openai.com/v1",
+            "model": "gpt-4o-mini",
+            "api_key_env": "MYPANEL_API_KEY"
+        }
+    ],
+    "grader": {
+        "kind": "ollama",
+        "base": "http://127.0.0.1:11434",
+        "model": "qwen2.5-coder:14b"
+    },
+    "attacks_file": "attack_standard.json",
+    "max_tokens": 350
+}
