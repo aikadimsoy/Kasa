@@ -148,6 +148,9 @@ async def execute_tool(
             result = method(**params)
             response_results.append(ToolResult(tool_name=tool_name, result=result))
 
+        except ValueError as e:
+            # L4: gecersiz girdi degeri (orn. TTL araligi, uzunluk) -> 400 (client), 500 DEGIL.
+            raise HTTPException(status_code=400, detail=f"'{tool_name}': geçersiz istek: {e}")
         except TypeError as e:
             # Yanlış parametreler için
             raise HTTPException(
@@ -156,6 +159,13 @@ async def execute_tool(
             )
         except PermissionError as e:
             raise HTTPException(status_code=403, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception:
+            # L4: ic detay SIZDIRMA — genel mesaj don, gercek hatayi sunucu-tarafi logla.
+            import logging, traceback
+            logging.getLogger("kasa.mcp").error("execute_tool iç hata:\n%s", traceback.format_exc())
+            raise HTTPException(status_code=500, detail="İç sunucu hatası.")
 
     return ExecuteToolResponse(results=response_results)
 
@@ -184,10 +194,17 @@ async def ingest(
 
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Geçersiz istek: {e}")
     except TypeError as e:
         raise HTTPException(status_code=422, detail=f"Geçersiz parametreler: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        # L4: ic detay str(e) SIZDIRMA -> genel mesaj + sunucu-tarafi log.
+        import logging, traceback
+        logging.getLogger("kasa.mcp").error("ingest iç hata:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="İç sunucu hatası.")
 
 @app.get("/")
 async def health_check():

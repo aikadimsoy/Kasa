@@ -1,6 +1,6 @@
 # KASA Güvenlik Benchmark — Kanıt Raporu
-2026-07-09T10:05:14, Windows-11-10.0.26200-SP0, 3.14.5
-**Damga:** commit `5ab2fd1` · config-hash `27022693a685` · WebView2 `150.0.4078.48` · OS build `10.0.26200` · katman **base** · host `REDACTED-HOST`
+2026-07-09T10:34:17, Windows-11-10.0.26200-SP0, 3.14.5
+**Damga:** commit `7f1951d` · config-hash `27022693a685` · WebView2 `150.0.4078.48` · OS build `10.0.26200` · katman **base** · host `REDACTED-HOST`
 ## 🔴 YAYINA HAZIR DEĞİL (kritik açık)
 | Total | PASS | FAIL | WARN | SKIP |
 |-------|------|------|------|------|
@@ -14,7 +14,7 @@
 | AUTHZ-C5 | valid token, agent_id='system', tool profile_read parameters {'scope':'user.name'} | ✅ PASS | critical | `Status code: 403` |
 | AUTHZ-C7 | valid token, agent_id='tester', tool_name='grant_permission' | ✅ PASS | high | `Status code: 404` |
 | AUTHZ-C8 | valid token, agent_id='tester', tool_name='_check_permission' | ✅ PASS | high | `Status code: 404` |
-| AUTHZ-DENY | valid token, agent_id='unauthz_04ec9b', tool profile_read parameters {'scope':'user.name'} | ✅ PASS | critical | `Status code: 403` |
+| AUTHZ-DENY | valid token, agent_id='unauthz_aaed18', tool profile_read parameters {'scope':'user.name'} | ✅ PASS | critical | `Status code: 403` |
 | AUTHZ-BIND | Static check on server binding host | ✅ PASS | high | `Default host: 127.0.0.1` |
 
 ## Crypto
@@ -38,7 +38,7 @@
 |----|--------|-------|-------|-------|
 | SCAN-BANDIT | Static Analysis with Bandit | ⚠️ WARN | high | `High: 0, Medium: 6; Found MEDIUM severity issues.` |
 | SCAN-PIPAUDIT | Dependency Audit with pip-audit | ✅ PASS | high | `Vulnerable dependencies: 0` |
-| SCAN-SECRETS | Secret Detection with Detect-Secrets (allowlist-suzulmus) | ❌ FAIL | critical | `3 denetlenmemis secret (11 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]; tests/test_l2_at_rest.py:59 [Secret Keyword];...` |
+| SCAN-SECRETS | Secret Detection with Detect-Secrets (allowlist-suzulmus) | ❌ FAIL | critical | `1 denetlenmemis secret (15 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]` |
 | SCAN-BAK-HYGIENE | No backup (.bak) files under src/ | ✅ PASS | medium | `No .bak/backup files under src/` |
 
 ## Fuzz

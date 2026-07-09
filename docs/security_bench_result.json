@@ -1,11 +1,11 @@
 {
   "meta": {
-    "date": "2026-07-09T10:05:14",
+    "date": "2026-07-09T10:34:17",
     "os": "Windows-11-10.0.26200-SP0",
     "os_build": "10.0.26200",
     "python": "3.14.5",
     "host": "REDACTED-HOST",
-    "commit": "5ab2fd1",
+    "commit": "7f1951d",
     "config_hash": "27022693a685",
     "webview2": "150.0.4078.48",
     "tier": "base"
@@ -62,7 +62,7 @@
     {
       "id": "AUTHZ-DENY",
       "category": "authz",
-      "title": "valid token, agent_id='unauthz_04ec9b', tool profile_read parameters {'scope':'user.name'}",
+      "title": "valid token, agent_id='unauthz_aaed18', tool profile_read parameters {'scope':'user.name'}",
       "status": "PASS",
       "severity": "critical",
       "evidence": "Status code: 403"
@@ -171,7 +171,7 @@
       "title": "Secret Detection with Detect-Secrets (allowlist-suzulmus)",
       "status": "FAIL",
       "severity": "critical",
-      "evidence": "3 denetlenmemis secret (11 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]; tests/test_l2_at_rest.py:59 [Secret Keyword]; tests/test_l2_at_rest.py:73 [Secret Keyword]",
+      "evidence": "1 denetlenmemis secret (15 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]",
       "remediation": "bearer_token: owner-only ACL uygulandi; kalan -> rotasyon + DPAPI-wrap/at-rest (owner-gated). Yeni bulgu gercekse kaynaktan kaldir, fixture/FP ise gerekceyle secret_allowlist.json'a ekle."
     },
     {

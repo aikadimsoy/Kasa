@@ -429,7 +429,17 @@ _PRIVACY_JS = r"""
       return dtf;
     };
     Intl.DateTimeFormat.prototype = _origDTF.prototype;
-    Object.defineProperty(Date.prototype, 'getTimezoneOffset', {value: function() {return -60;}, writable: false, configurable: false});
+    // B4 TUTARLILIK: getTimezoneOffset'i SABIT -60 yerine iddia edilen Europe/Berlin'e gore
+    // TARIHE BAGLI (DST-farkinda) hesapla -> Intl.timeZone ile TUTARLI (yazin CEST=-120, kisin CET=-60).
+    // Sabit -60, yaz tarihlerinde Intl='Europe/Berlin' ile celisiyordu = parmak izi.
+    Object.defineProperty(Date.prototype, 'getTimezoneOffset', {value: function() {
+      try {
+        const s = new _origDTF('en-US', {timeZone:'Europe/Berlin', timeZoneName:'shortOffset'}).format(this);
+        const m = s.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+        if (m) { const sign = m[1]==='-'?1:-1; const h=parseInt(m[2],10); const mm=m[3]?parseInt(m[3],10):0; return sign*(h*60+mm); }
+      } catch (e) {}
+      return -60;
+    }, writable: false, configurable: false});
   } catch (e) {}
 
   // Known Tracker Cookie Poisoning (yalnizca strict/paranoid)
