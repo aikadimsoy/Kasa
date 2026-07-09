@@ -101,19 +101,12 @@ def _berlin_expected_offset():
     return -120 if (start <= today < end) else -60
 
 
-def evaluate(records):
-    if not records:
-        return False, {"boot_ok": False, "leaks": [], "sample": {}}
-
-    boot_ok = True
-    # Tercihen pass==2 (pre-injection uygulanmis reload), yoksa son kayit.
-    rec = None
-    for r in records:
-        if r.get("pass") == 2:
-            rec = r
-    if rec is None:
-        rec = records[-1]
-
+def _detect_leaks(rec):
+    """Bir kayittaki (pass==1 cold ya da pass==2 warmed) cok-katmanli parmak-izi
+    sizintisini doner. KATMAN-TASIMA YOK (ilke-6): webgl (JS) / accept_language
+    (HTTP<->JS) / timezone (JS) / platform (JS) kendi katmanlarinda denetlenir.
+    evaluate() ve evaluate_cold() bu TEK kurali harfiyen paylasir; cold ile warmed
+    arasinda kural farki olusmasin diye tek kaynakta tutulur."""
     js = rec.get("js", {}) or {}
     http = rec.get("http", {}) or {}
     leaks = []
@@ -133,7 +126,38 @@ def evaluate(records):
     if js.get("platform") != "Win32":
         leaks.append("platform")
 
-    return (not leaks), {"boot_ok": boot_ok, "leaks": leaks, "sample": rec}
+    return leaks
+
+
+def evaluate(records):
+    if not records:
+        return False, {"boot_ok": False, "leaks": [], "sample": {}}
+
+    # Tercihen pass==2 (pre-injection uygulanmis reload), yoksa son kayit.
+    rec = None
+    for r in records:
+        if r.get("pass") == 2:
+            rec = r
+    if rec is None:
+        rec = records[-1]
+
+    leaks = _detect_leaks(rec)
+    return (not leaks), {"boot_ok": True, "leaks": leaks, "sample": rec}
+
+
+def evaluate_cold(records):
+    """B1 KANITI (ilke-7): ISINMIS (pass==2) degil, COLD pass==1 uzerinden verdict.
+    pass==1 = adversary_site'in pre-injection UYGULANMADAN ilk navigasyonda dondurdugu
+    sayfa ('pre-inject yok, yaris'). Spoof'un ILK istekten ONCE inip inmedigini olcer.
+    Warmed evaluate() ile AYNI _detect_leaks kuralini kullanir (ilke-6).
+    Doner (ok, meta): meta.leaks bos => cold kimlik tutarli => B1 gecti.
+    meta.blind True => cold kayit HIC yok => harness kor => ASLA PASS sayma (false-PASS avi)."""
+    for r in records:
+        if r.get("pass") == 1:  # ILK pass==1 = en erken cold gozlem
+            leaks = _detect_leaks(r)
+            return (not leaks), {"cold": True, "leaks": leaks, "sample": r, "blind": False}
+    # pass==1 yok: cold veri yakalanmamis; PASS demek sessiz false-PASS olur.
+    return False, {"cold": True, "leaks": [], "sample": {}, "blind": True}
 
 
 def run_gate(mode="boot", timeout_s=16):
