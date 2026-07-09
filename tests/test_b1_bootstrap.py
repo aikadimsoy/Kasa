@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
-"""B1 about:blank-bootstrap cekirdek mantik regresyonu (Controller, ilke-7).
-GUI GEREKTIRMEZ: saf fonksiyonlar + sahte-core ile sira/fail-safe/idempotency/watchdog
-degismezlerini deterministik dogrular. Canli CoreWebView2 sira-davranisi AYRI kapi (Kapi-2)."""
+"""B1 inline-html bootstrap cekirdek mantik regresyonu (Controller, ilke-7).
+GUI GEREKTIRMEZ: saf fonksiyonlar + sahte-core ile deterministik-sira / fail-safe / fail-audible /
+idempotency / navigate-rollback / watchdog degismezlerini dogrular. Canli CoreWebView2 ContinueWith
+davranisi AYRI kapi (Kapi-2)."""
+import os
 import sys
+import tempfile
 
 sys.path.insert(0, "d:/kasa")
 import src.browser.browser_window as bw
@@ -10,8 +13,8 @@ import src.browser.browser_window as bw
 
 class _FakeCore:
     """CLR-bagimsiz core arayuzunu taklit eder; tum cagrilari paylasilan 'log'a yazar.
-    defer=True -> when_all cb'yi HEMEN cagirmaz, saklar (fire() ile tetiklenir).
-    raise_on_add=True -> add_script patlar (fail-safe yolunu test icin)."""
+    defer=True -> when_ready cb'yi HEMEN cagirmaz, saklar (fire() ile tetiklenir) — ContinueWith'in
+    kayit-tamamlanmasini bekledigini modellemek icin. raise_on_add=True -> add_script patlar."""
 
     def __init__(self, log, defer=False, raise_on_add=False):
         self.log = log
@@ -28,8 +31,8 @@ class _FakeCore:
         self.log.append(("add", js))
         return ("task", js)
 
-    def when_all(self, tasks, cb):
-        self.log.append(("when_all", len(tasks)))
+    def when_ready(self, task, cb):
+        self.log.append(("when_ready",))
         if self.defer:
             self._pending = cb
         else:
@@ -41,43 +44,43 @@ class _FakeCore:
             self._pending = None
 
 
-def test_scripts_registered_before_navigate():
-    # DEGISMEZ: tracking -> add(prelude) -> add(privacy) -> navigate. Navigate en sonda.
+def test_script_registered_before_navigate():
+    # DEGISMEZ: tracking -> add(early_js) -> when_ready -> navigate. Navigate en sonda.
     log = []
     core = _FakeCore(log)
     navigate = lambda u: log.append(("navigate", u))
-    bw._bootstrap_privacy_navigation(core, navigate, "http://real", "PRE", "PRIV")
+    bw._bootstrap_privacy_navigation(core, navigate, "http://real", "EARLY", on_fallback=None)
     assert log == [
         ("tracking", 1),
-        ("add", "PRE"),
-        ("add", "PRIV"),
-        ("when_all", 2),
+        ("add", "EARLY"),
+        ("when_ready",),
         ("navigate", "http://real"),
     ]
 
 
-def test_navigate_gated_on_when_all_not_eager():
-    # Navigate ASLA eager degil: when_all cozulene kadar cagrilmaz (yaris onleme).
+def test_navigate_gated_on_when_ready_not_eager():
+    # Navigate ASLA eager degil: kayit TAMAMLANANA (when_ready cb) kadar cagrilmaz -> yaris yok.
     log = []
     core = _FakeCore(log, defer=True)
     navigate = lambda u: log.append(("navigate", u))
-    bw._bootstrap_privacy_navigation(core, navigate, "http://real", "PRE", "PRIV")
-    assert ("navigate", "http://real") not in log      # henuz YOK
-    core.fire()                                          # her iki kayit cozuldu
+    bw._bootstrap_privacy_navigation(core, navigate, "http://real", "EARLY")
+    assert ("navigate", "http://real") not in log       # henuz YOK (kayit beklemede)
+    core.fire()                                          # kayit tamamlandi
     assert log[-1] == ("navigate", "http://real")        # simdi navigate
 
 
-def test_failsafe_navigates_on_exception():
-    # FAIL-SAFE (taban=bugun): kayit patlarsa yine de gercek url'e git.
+def test_failsafe_navigates_and_audits_on_exception():
+    # FAIL-SAFE + FAIL-AUDIBLE: kayit patlarsa on_fallback(reason) + yine de gercek url'e git.
     log = []
+    audits = []
     core = _FakeCore(log, raise_on_add=True)
     navigate = lambda u: log.append(("navigate", u))
-    bw._bootstrap_privacy_navigation(core, navigate, "http://real", "PRE", "PRIV")
-    assert ("navigate", "http://real") in log
+    bw._bootstrap_privacy_navigation(core, navigate, "http://real", "EARLY", on_fallback=audits.append)
+    assert ("navigate", "http://real") in log            # taban navigasyon yapildi
+    assert audits and audits[0].startswith("bootstrap_exception")  # SESSIZ degil: denetlenebilir
 
 
 def test_navigate_once_is_idempotent():
-    # bootstrap-continuation VE watchdog ayni anda tetiklense bile load_url TEK KEZ.
     loads = []
     navigate = bw._make_navigate_once(lambda u: loads.append(u))
     assert navigate("http://real") is True
@@ -92,6 +95,36 @@ def test_navigate_once_starts_not_done():
     assert navigate.done() is False
 
 
+def test_navigate_once_rolls_back_on_load_error_and_can_retry():
+    # ASILI-BLANK REGRESYONU: load_url ~20s'te WebViewException firlatirsa done GERI ALINIR ve
+    # yeniden deneme mumkun olur (aksi halde pencere blank'te asili kalirdi).
+    calls = {"n": 0}
+    errs = []
+
+    def flaky(url):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("shown timeout")   # ilk deneme (yavas WebView2 init)
+
+    navigate = bw._make_navigate_once(flaky, on_error=errs.append)
+    assert navigate("http://real") is False        # ilk deneme patladi
+    assert navigate.done() is False                # done GERI ALINDI
+    assert errs and errs[0].startswith("navigate_load_url_failed")  # denetlenebilir
+    assert navigate("http://real") is True         # ikinci deneme basarili
+    assert navigate.done() is True
+    assert calls["n"] == 2
+
+
 def test_watchdog_only_navigates_when_not_navigated():
-    assert bw._watchdog_should_navigate(False) is True    # navigasyon yok -> fallback sart
-    assert bw._watchdog_should_navigate(True) is False     # zaten navigasyon var -> dokunma
+    assert bw._watchdog_should_navigate(False) is True     # navigasyon yok -> fallback sart
+    assert bw._watchdog_should_navigate(True) is False      # zaten navigasyon var -> dokunma
+
+
+def test_audit_b1_writes_auditable_event(monkeypatch):
+    # FAIL-AUDIBLE kaydin GERCEKTEN diske dustugunu dogrula (sessiz fail-open olmadigi kaniti).
+    tmp = os.path.join(tempfile.mkdtemp(), "b1_events.log")
+    monkeypatch.setattr(bw, "_B1_EVENT_LOG", tmp)
+    bw._audit_b1("test_reason_xyz")
+    with open(tmp, encoding="utf-8") as f:
+        line = f.read()
+    assert "b1_protection_fallback" in line and "test_reason_xyz" in line
