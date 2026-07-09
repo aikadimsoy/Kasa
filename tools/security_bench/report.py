@@ -23,6 +23,10 @@ def render(results: List[Dict], meta: Dict) -> Tuple[str, str]:
     markdown = [
         f"# KASA Güvenlik Benchmark — Kanıt Raporu",
         f"{meta['date']}, {meta['os']}, {meta['python']}",
+        # v2 damga: rapor tek-basina denetlenebilir/tekrar-uretilebilir olsun (SPEC metodoloji disiplini)
+        f"**Damga:** commit `{meta.get('commit', '?')}` · config-hash `{meta.get('config_hash', '?')}`"
+        f" · WebView2 `{meta.get('webview2', 'n/a')}` · OS build `{meta.get('os_build', '?')}`"
+        f" · katman **{meta.get('tier', 'base')}** · host `{meta.get('host', '?')}`",
         verdict,
         f"| Total | PASS | FAIL | WARN | SKIP |",
         f"|-------|------|------|------|------|",

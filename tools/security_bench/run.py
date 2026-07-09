@@ -4,19 +4,73 @@ import platform
 import socket
 import datetime
 import json
+import hashlib
+import subprocess
 from tools.security_bench.checks import authz, crypto, audit, scan, fuzz
 from tools.security_bench.report import render
+
+
+# ===== v2 DAMGA (reprodusibilite/seffaflik) — SPEC CPU metodoloji disiplini =====
+# Rapor tek-basina denetlenebilir olsun diye her kosuya commit + config + WebView2 +
+# OS build + katman (base/peak) damgasi basilir. Windows/git-ozgu oldugu icin Controller elle yazdi.
+def _git_commit() -> str:
+    try:
+        out = subprocess.run(["git", "-C", "d:/kasa", "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=10)
+        return out.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _config_hash() -> str:
+    # browser_config.json + requirements.txt -> tek config-hash (ayni girdi = ayni hash = reprodusibilite)
+    h = hashlib.sha256()
+    for p in ("d:/kasa/browser_config.json", "d:/kasa/requirements.txt"):
+        try:
+            with open(p, "rb") as f:
+                h.update(f.read())
+        except FileNotFoundError:
+            h.update(b"<missing>")
+    return h.hexdigest()[:12]
+
+
+def _webview2_version() -> str:
+    # Windows-only: Evergreen WebView2 Runtime surumu (registry 'pv'); yoksa 'n/a'.
+    try:
+        import winreg
+        guid = r"{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+        for hive, key in (
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\\" + guid),
+            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\EdgeUpdate\Clients\\" + guid),
+        ):
+            try:
+                with winreg.OpenKey(hive, key) as k:
+                    v, _ = winreg.QueryValueEx(k, "pv")
+                    if v:
+                        return v
+            except OSError:
+                continue
+    except Exception:
+        pass
+    return "n/a"
+
 
 def main() -> int:
     try:
         if "d:/kasa" not in sys.path:
             sys.path.insert(0, "d:/kasa")
-        
+
         meta = {
             "date": datetime.datetime.now().isoformat(timespec="seconds"),
             "os": platform.platform(),
+            "os_build": platform.version(),
             "python": platform.python_version(),
-            "host": socket.gethostname()
+            "host": socket.gethostname(),
+            "commit": _git_commit(),
+            "config_hash": _config_hash(),
+            "webview2": _webview2_version(),
+            # base = varsayilan gizlilik, peak = gelismis-kilitli kademe; ortam degiskeniyle secilir
+            "tier": os.environ.get("KASA_BENCH_TIER", "base"),
         }
         
         results = []
