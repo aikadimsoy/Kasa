@@ -9,6 +9,7 @@ anahtar şifrelenir. Bu, SQLCipher'ın Windows'taki derleme zorluklarını aşar
 
 import sqlite3
 import os
+import shutil
 import hashlib
 import time
 from . import schema
@@ -17,6 +18,9 @@ from .audit import AuditChain
 
 # Anahtarın saklanacağı dosya adı
 KEY_FILE_NAME = ".vaultkey"
+# Parola-KDF tuzu (opsiyonel parola katmani aktifse) + iterasyon sayisi.
+SALT_FILE_NAME = ".vaultsalt"
+PBKDF2_ITERATIONS = 200_000  # PBKDF2-HMAC-SHA256 tur sayisi (offline brute-force maliyeti)
 
 class Vault:
     def __init__(self, vault_path: str, vault_password: str = None):
@@ -32,6 +36,7 @@ class Vault:
         os.makedirs(vault_path, exist_ok=True)
         self.db_path = os.path.join(vault_path, "kasa.db")
         self.key_path = os.path.join(vault_path, KEY_FILE_NAME)
+        self.salt_path = os.path.join(vault_path, SALT_FILE_NAME)
         self._password = vault_password
         self._db_key = self._get_or_create_db_key()
         
@@ -53,11 +58,122 @@ class Vault:
             with open(self.key_path, "wb") as f:
                 f.write(encrypted_key)
         
-        # Eğer ek parola varsa, anahtarı zenginleştir
+        # Eğer ek parola varsa, anahtarı PAROLA-KDF ile turet (DPAPI + parola iki-faktor).
+        # ONCEKI zayif sema (sha256(db_key + password), tuzsuz/tek-tur) yerine PBKDF2-HMAC-SHA256:
+        # kalici tuz + yuksek iterasyon -> zayif parolada offline brute-force'u pahalilastirir.
+        # `password`=kullanici parolasi, `salt`=(kalici tuz + DPAPI-korumali db_key): boylece
+        # turetilmis anahtar HEM parolaya HEM DPAPI-sirrina baglidir (birini bilmek yetmez).
         if self._password:
-            return hashlib.sha256(db_key + self._password.encode('utf-8')).digest()
-        
+            salt = self._get_or_create_salt()
+            return hashlib.pbkdf2_hmac(
+                "sha256", self._password.encode("utf-8"), salt + db_key,
+                PBKDF2_ITERATIONS, dklen=32)
+
         return db_key
+
+    def _get_or_create_salt(self) -> bytes:
+        """Parola-KDF icin kalici 16-byte tuz (.vaultsalt). Yoksa uretir ve saklar."""
+        if os.path.exists(self.salt_path):
+            with open(self.salt_path, "rb") as f:
+                return f.read()
+        salt = os.urandom(16)
+        with open(self.salt_path, "wb") as f:
+            f.write(salt)
+        return salt
+
+    def rotate_db_key(self) -> dict:
+        """Cell-crypt anahtarini DONDURUR (on-demand re-key): yeni ham anahtar uret, tum K1:
+        hucreleri (profile.value, events.content, audit.details) eski->yeni anahtarla yeniden
+        sifreler; DPAPI-korumali .vaultkey'i degistirir (once .bak yedegi). Islem-guvenli:
+        tum DB guncellemeleri tek transaction'da; hata olursa rollback + eski anahtar korunur.
+
+        AUDIT ZINCIRI: details ENCRYPT-THEN-HASH ile saklanir; ciphertext degisince entry_hash
+        de degisir -> zincir SIRAYLA yeniden kurulur (aksi halde verify_chain bozulur).
+        Parola aktifse yeni turetilmis anahtar ayni parola+tuz ile hesaplanir.
+
+        Doner: {"status": "success", "rotated": {profile, events, audit sayaclari}}."""
+        from . import cell_crypt
+        if not self.conn:
+            self.connect()
+        conn = self.conn
+        old_key = self._db_key
+        new_raw = os.urandom(32)
+        if self._password:
+            salt = self._get_or_create_salt()
+            new_key = hashlib.pbkdf2_hmac(
+                "sha256", self._password.encode("utf-8"), salt + new_raw,
+                PBKDF2_ITERATIONS, dklen=32)
+        else:
+            new_key = new_raw
+
+        counts = {"profile": 0, "events": 0, "audit": 0}
+        cur = conn.cursor()
+        try:
+            # profile.value  (AAD = aad_profile(key))
+            for row in cur.execute("SELECT id, key, value FROM profile").fetchall():
+                if cell_crypt.is_encrypted(row["value"]):
+                    aad = cell_crypt.aad_profile(row["key"])
+                    plain = cell_crypt.decrypt_cell(row["value"], old_key, aad)
+                    conn.execute("UPDATE profile SET value=? WHERE id=?",
+                                 (cell_crypt.encrypt_cell(plain, new_key, aad), row["id"]))
+                    counts["profile"] += 1
+
+            # events.content  (AAD = aad_event())
+            for row in cur.execute("SELECT id, content FROM events").fetchall():
+                if cell_crypt.is_encrypted(row["content"]):
+                    aad = cell_crypt.aad_event()
+                    plain = cell_crypt.decrypt_cell(row["content"], old_key, aad)
+                    conn.execute("UPDATE events SET content=? WHERE id=?",
+                                 (cell_crypt.encrypt_cell(plain, new_key, aad), row["id"]))
+                    counts["events"] += 1
+
+            # audit.details + hash-zinciri yeniden kur (encrypt-then-hash gereksinimi).
+            # DEBI-2 zincir tohumu: arsivlenmis zincirde ilk satirin previous_hash'i genesis
+            # DEGIL checkpoint muhurudur -> mevcut tohumu KORU (genesis'e zorlama, aksi halde
+            # rotate sonrasi verify_chain checkpoint eslesmesini kaybeder).
+            _first = cur.execute("SELECT previous_hash FROM audit ORDER BY id ASC LIMIT 1").fetchone()
+            last_hash = _first["previous_hash"] if _first else hashlib.sha256(b"genesis").hexdigest()
+            for row in cur.execute(
+                    "SELECT id, timestamp, agent_id, action, details FROM audit ORDER BY id ASC").fetchall():
+                details_stored = row["details"]
+                if cell_crypt.is_encrypted(details_stored):
+                    aad = cell_crypt.aad_audit(row["agent_id"], row["action"], row["timestamp"])
+                    plain = cell_crypt.decrypt_cell(details_stored, old_key, aad)
+                    details_stored = cell_crypt.encrypt_cell(plain, new_key, aad)
+                    counts["audit"] += 1
+                hasher = hashlib.sha256()
+                hasher.update(str(row["timestamp"]).encode("utf-8"))
+                hasher.update(row["agent_id"].encode("utf-8"))
+                hasher.update(row["action"].encode("utf-8"))
+                hasher.update(details_stored.encode("utf-8"))
+                hasher.update(last_hash.encode("utf-8"))
+                entry_hash = hasher.hexdigest()
+                conn.execute("UPDATE audit SET details=?, previous_hash=?, entry_hash=? WHERE id=?",
+                             (details_stored, last_hash, entry_hash, row["id"]))
+                last_hash = entry_hash
+
+            # DEBI-2: satiri hala tabloda olan checkpoint muhurlerini yeni hash'e tasi.
+            # Aksi halde "checkpoint -> rotate -> arsiv" sirasi verify_chain'i kirar
+            # (muhur eski hash'i gosterir, kalan ilk satirin previous_hash'i yenidir).
+            conn.execute(
+                """UPDATE audit_checkpoint
+                   SET upto_hash = (SELECT entry_hash FROM audit WHERE audit.id = audit_checkpoint.upto_id)
+                   WHERE EXISTS (SELECT 1 FROM audit WHERE audit.id = audit_checkpoint.upto_id)""")
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise  # DB dokunulmadi (rollback); eski .vaultkey hala gecerli -> kasa acilir kalir
+
+        # DB basariyla yeniden sifrelendi -> yeni ham anahtari DPAPI ile sakla (once yedek).
+        if os.path.exists(self.key_path):
+            shutil.copy2(self.key_path, self.key_path + ".bak")
+        with open(self.key_path, "wb") as f:
+            f.write(encryption.protect_data(new_raw))
+        self._db_key = new_key
+        if self.audit_chain is not None:
+            self.audit_chain._key = new_key  # sonraki audit yazimlari yeni anahtarla
+        return {"status": "success", "rotated": counts}
 
     def connect(self):
         """Veritabanına bağlanır ve şemayı oluşturur."""
@@ -90,12 +206,20 @@ class Vault:
         for migration in (
             "ALTER TABLE profile ADD COLUMN supersedes INTEGER",
             "ALTER TABLE events ADD COLUMN distilled INTEGER DEFAULT 0",
+            # DEBI-1: dedup kolonlari (content_hash HMAC kimligi + tekrar sayaci)
+            "ALTER TABLE events ADD COLUMN content_hash TEXT",
+            "ALTER TABLE events ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE events ADD COLUMN last_seen REAL",
         ):
             try:
                 self.conn.execute(migration)
                 self.conn.commit()
             except Exception:
                 pass  # Sütun zaten var
+        # DEBI-1 dedup indeksi: content_hash kolonu migration ile geldigi icin indeks
+        # ALL_INDEXES'te DEGIL, migration SONRASI burada kurulur (eski DB'de sira hatasi olmasin).
+        self.conn.execute(schema.CREATE_EVENTS_HASH_INDEX)
+        self.conn.commit()
 
     def close(self):
         """Veritabanı bağlantısını kapatır."""

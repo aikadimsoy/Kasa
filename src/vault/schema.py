@@ -14,12 +14,21 @@ CREATE TABLE IF NOT EXISTS events (
     source TEXT NOT NULL, -- e.g., 'browser_extension', 'manual_entry'
     type TEXT NOT NULL, -- e.g., 'page_view', 'form_submit'
     content TEXT NOT NULL, -- JSON blob of event data
-    ttl_expiry REAL NOT NULL -- Timestamp when this event should be deleted
+    ttl_expiry REAL NOT NULL, -- Timestamp when this event should be deleted
+    content_hash TEXT, -- HMAC-SHA256(vault-key, source|type|content): dedup kimligi (DEBI-1)
+    occurrence_count INTEGER NOT NULL DEFAULT 1, -- ayni olayin kac kez gozlendigi
+    last_seen REAL -- son tekrarin zamani (ilk kayitta = timestamp)
 );
 """
 
 CREATE_EVENTS_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events (timestamp);
+"""
+
+# DEBI-1 dedup arama indeksi. ALL_INDEXES'e EKLENMEZ: eski DB'lerde content_hash kolonu
+# ALTER-migration ile gelir; indeks migration SONRASI database._init_schema'da kurulur.
+CREATE_EVENTS_HASH_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_events_content_hash ON events (content_hash);
 """
 
 # Profil (Profile): Damıtılmış, kalıcı, insan tarafından okunabilir bilgiler.
@@ -68,12 +77,27 @@ CREATE_AUDIT_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit (timestamp);
 """
 
+# Denetim kontrol noktalari (DEBI-2): zincirin donemsel kapanis muhurleri.
+# Sebep: audit zinciri yalnizca uca ekler, aradan silinemez -> sinirsiz buyur.
+# Checkpoint son entry_hash'i ayri tabloya sabitler; ondan eski kayitlar arsivlenebilir,
+# verify_chain genesis yerine muhurden tohumlanir (T7 garantisi bozulmaz).
+CREATE_AUDIT_CHECKPOINT_TABLE = """
+CREATE TABLE IF NOT EXISTS audit_checkpoint (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at REAL NOT NULL,
+    upto_id INTEGER NOT NULL, -- muhurlenen son audit satirinin id'si
+    upto_hash TEXT NOT NULL, -- muhurlenen son audit satirinin entry_hash'i
+    entry_count INTEGER NOT NULL -- muhur anindaki kapsanan kayit sayisi
+);
+"""
+
 # Tüm DDL komutlarını bir listede topla
 ALL_TABLES = [
     CREATE_EVENTS_TABLE,
     CREATE_PROFILE_TABLE,
     CREATE_PERMISSIONS_TABLE,
     CREATE_AUDIT_TABLE,
+    CREATE_AUDIT_CHECKPOINT_TABLE,
 ]
 
 ALL_INDEXES = [

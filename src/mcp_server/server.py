@@ -48,8 +48,10 @@ class SimpleToolRequest(BaseModel):
 
 # -- Bağımlılıklar (Dependencies) --
 
-# Config önce yüklenir — VAULT_PATH ve token burada belirlenir
-_CONFIG_PATH = pathlib.Path(__file__).parent.parent.parent / "kasa.toml"
+# Config önce yüklenir — VAULT_PATH ve token burada belirlenir.
+# KASA_CONFIG env (varsa) onceliklidir -> paketlenmis app config'i %APPDATA%\KASA'ya yonlendirir
+# (frozen bundle icindeki salt-okunur kasa.toml yerine kalici, yazilabilir konum).
+_CONFIG_PATH = pathlib.Path(os.environ.get("KASA_CONFIG") or (pathlib.Path(__file__).parent.parent.parent / "kasa.toml"))
 _cfg = load_config(_CONFIG_PATH)
 _BEARER_TOKEN = get_or_create_bearer_token(_cfg, _CONFIG_PATH)
 _ALLOWED_ORIGINS = _cfg["server"]["allowed_origins"]
@@ -60,6 +62,12 @@ VAULT_INSTANCE = Vault(vault_path=VAULT_PATH)
 
 RESERVED_AGENT_IDS = {"system"}
 PUBLIC_TOOLS = {"event_ingest", "profile_read", "profile_write", "forget", "audit_read", "prune_expired_events"}
+
+# DEBI-0: ajan-basi debi ust-siniri (halusinasyon-dongusu freni). audit_checkpoint /
+# audit_archive PUBLIC_TOOLS'a bilerek EKLENMEDI: arsivleme sahibin/bakimin isidir,
+# ag katmanindan cagirilamaz (deny-by-default ile tutarli).
+from .ratelimit import RateLimiter
+RATE_LIMITER = RateLimiter(capacity=60, refill_per_sec=1.0)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -115,6 +123,16 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(_security)
     if not secrets.compare_digest(credentials.credentials, _BEARER_TOKEN):
         raise HTTPException(status_code=401, detail="Geçersiz token.")
 
+# Read-only dashboard uclari (aggregate + maskeli; docs/UI_UX_STANDARD.md).
+# NOT: include_router bu ortamda (starlette 1.1.0) route kopyalamiyor -> add_api_route.
+from ..dashboard.routes import register as _register_dashboard
+_register_dashboard(app, get_vault, verify_token, _BEARER_TOKEN)
+
+# Ajan koprusu uclari (yerel model + read-through-redact araclar; docs/ORCHESTRATOR_SURVEY.md).
+# Ayni add_api_route deseni (starlette include_router route dusuruyor).
+from ..agent.routes import register as _register_agent
+_register_agent(app, get_vault, verify_token)
+
 # -- Endpoints --
 
 @app.post("/v1/execute_tool", response_model=ExecuteToolResponse)
@@ -128,7 +146,12 @@ async def execute_tool(
     """
     if request.agent_id in RESERVED_AGENT_IDS:
         raise HTTPException(status_code=403, detail="Ajan kimliği mevcut değil.")
-    
+
+    # DEBI-0: her tool_call 1 token. Izin kontrolunden ONCE: reddedilen cagri da is yapar
+    # (audit yazar), fren en distaki kapida olmali.
+    if not RATE_LIMITER.allow(request.agent_id, cost=float(max(1, len(request.tool_calls)))):
+        raise HTTPException(status_code=429, detail="Hız sınırı aşıldı; daha sonra tekrar deneyin.")
+
     tool_handler = VaultTools(vault, agent_id=request.agent_id)
     response_results = []
 
@@ -178,7 +201,11 @@ async def ingest(
     """Basit tek-araç endpoint'i (browser extension + Native Messaging icin)."""
     if request.agent_id in RESERVED_AGENT_IDS:
         raise HTTPException(status_code=403, detail="Ajan kimliği mevcut değil.")
-    
+
+    # DEBI-0: tek-arac endpoint'i de ayni kovadan tuketir (yan kapi birakma).
+    if not RATE_LIMITER.allow(request.agent_id, cost=1.0):
+        raise HTTPException(status_code=429, detail="Hız sınırı aşıldı; daha sonra tekrar deneyin.")
+
     tool_handler = VaultTools(vault, agent_id=request.agent_id)
     if request.tool not in PUBLIC_TOOLS:
         raise HTTPException(

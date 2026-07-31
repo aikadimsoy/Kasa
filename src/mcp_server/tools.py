@@ -10,9 +10,11 @@ Her araç çağrısı: izin kontrolü (permissions tablosu) → işlem → audit
 import json
 import time
 import hashlib
+import hmac
 import sqlite3
 from ..vault.database import Vault
 from ..vault import cell_crypt
+from ..vault import redact
 
 
 def _digest(value) -> str:
@@ -136,6 +138,8 @@ class VaultTools:
         old_row = cursor.fetchone()
         supersedes_id = old_row[0] if old_row else None
 
+        # GUVENLIK ICERIK KAPISI: sir/yuksek-entropi (yapi-koruyan) maskele, SONRA sifrele.
+        value, _red_hits = redact.scan(value)
         # L2: value at-rest AES-GCM sifrelenir (AAD = profile|value|key). provenance = event-ID'ler, plaintext.
         enc_value = cell_crypt.encrypt_cell(json.dumps(value), self._key(), cell_crypt.aad_profile(key))
         cursor.execute(
@@ -251,20 +255,76 @@ class VaultTools:
         self.audit_chain.record(self.agent_id, action, {**details, "result": "success"})
         return result
 
+    def audit_checkpoint(self) -> dict:
+        """Denetim zincirini mühürler (DEBI-2). PUBLIC_TOOLS dışıdır: ağdan çağrılamaz,
+        sahip/bakım (in-process) aracıdır. 'admin:audit' kapsamı gerekir."""
+        if not self._check_permission("admin:audit"):
+            raise PermissionError(f"Ajan '{self.agent_id}' için audit checkpoint izni yok.")
+        result = self.audit_chain.create_checkpoint()
+        # Muhur islemi de zincire yazilir (kendinden SONRAKI kayit olarak; muhur kapsami disi).
+        self.audit_chain.record(self.agent_id, "audit_checkpoint",
+                                {"checkpoint_id": result.get("checkpoint_id"),
+                                 "upto_id": result.get("upto_id"),
+                                 "entry_count": result.get("entry_count"),
+                                 "result": result["status"]})
+        return result
+
+    def audit_archive(self, checkpoint_id: int) -> dict:
+        """Mühürlenmiş aralığı denetim tablosundan siler (DEBI-2 arşiv). Mühürsüz kayıt
+        silinemez (audit.archive_up_to ValueError verir). 'admin:audit' kapsamı gerekir."""
+        if not self._check_permission("admin:audit"):
+            raise PermissionError(f"Ajan '{self.agent_id}' için audit arşiv izni yok.")
+        result = self.audit_chain.archive_up_to(checkpoint_id)
+        self.audit_chain.record(self.agent_id, "audit_archive",
+                                {"checkpoint_id": checkpoint_id, "deleted": result["deleted"],
+                                 "upto_id": result["upto_id"], "result": "success"})
+        return result
+
     def prune_expired_events(self) -> dict:
-        """Süresi dolmuş ve damıtılmış event'leri siler; ardından VACUUM çalıştırır."""
+        """Süresi dolmuş ve damıtılmış event'leri siler; ardından VACUUM çalıştırır.
+
+        DEBI-3 TOMBSTONE: profile.provenance'ın işaret ettiği satırlar SİLİNMEZ,
+        içeriği yok edilip mezar taşına çevrilir. Sebep: provenance event-ID listesidir;
+        satır tamamen giderse "bu profil bilgisi nereden türedi" zinciri kopar.
+        Sonuç: hassas içerik diskten gider (secure_delete=ON), satır kimliği ve
+        denetlenebilirlik kalır. forget() bu korumadan MUAF: unutulma hakkı (T5)
+        köken zincirinden üstündür, orada gerçek silme sürer.
+        """
         if not self._check_permission("admin:prune"):
             raise PermissionError(f"Ajan '{self.agent_id}' için prune izni yok.")
 
         conn = self._db()
         now = time.time()
         cursor = conn.cursor()
-        # Sadece distilled=1 olan ve TTL'si geçmiş satırlar silinir
+
+        # Provenance'ta referanslanan event-ID'ler (JSON array, plaintext).
+        referenced = set()
+        for row in cursor.execute("SELECT provenance FROM profile").fetchall():
+            try:
+                referenced.update(int(x) for x in json.loads(row["provenance"]))
+            except (ValueError, TypeError):
+                pass  # bozuk provenance satiri referans dondurmez; ilgili event silinebilir
+
         cursor.execute(
-            "DELETE FROM events WHERE ttl_expiry < ? AND distilled = 1",
-            (now,)
-        )
-        deleted = cursor.rowcount
+            "SELECT id, content_hash FROM events WHERE ttl_expiry < ? AND distilled = 1 "
+            "AND content NOT LIKE 'tombstone:%'",
+            (now,))
+        expired = cursor.fetchall()
+        tombstoned = 0
+        delete_ids = []
+        for r in expired:
+            if r["id"] in referenced:
+                # Icerik yerine sabit isaret + dedup kimligi (varsa): satir kalir, sir gider.
+                conn.execute("UPDATE events SET content = ? WHERE id = ?",
+                             ("tombstone:" + (r["content_hash"] or ""), r["id"]))
+                tombstoned += 1
+            else:
+                delete_ids.append(r["id"])
+        deleted = 0
+        if delete_ids:
+            placeholders = ",".join("?" * len(delete_ids))
+            cursor.execute(f"DELETE FROM events WHERE id IN ({placeholders})", delete_ids)
+            deleted = cursor.rowcount
         conn.commit()
         try:
             conn.execute("VACUUM")
@@ -272,8 +332,8 @@ class VaultTools:
             pass  # WAL modunda veya başka bağlantı varsa sessizce atla
 
         self.audit_chain.record(self.agent_id, "prune_expired_events",
-                                {"deleted": deleted, "pruned_at": now})
-        return {"status": "success", "deleted": deleted}
+                                {"deleted": deleted, "tombstoned": tombstoned, "pruned_at": now})
+        return {"status": "success", "deleted": deleted, "tombstoned": tombstoned}
 
     def event_ingest(self, source: str, type: str, content: dict, ttl_days: int = 30) -> dict:
         """
@@ -308,14 +368,45 @@ class VaultTools:
         ttl_expiry = now + ttl_days * 86400
         conn = self._db()
         cursor = conn.cursor()
+        # GUVENLIK ICERIK KAPISI: sir/yuksek-entropi (yapi-koruyan) maskele, SONRA sifrele.
+        content, _red_hits = redact.scan(content)
+
+        # DEBI-1 DEDUP: ayni (source|type|icerik) tekrari yeni satir ACMAZ; sayac artar.
+        # Sebep: "her sabah mail acti" gibi rutinler 365 satir yerine 1 satir + sayac olmali;
+        # sinirsiz tekrar hem diski sisirir hem forget'in decrypt-scan maliyetini buyutur.
+        # Kimlik ANAHTARLI ozet (HMAC, vault anahtari): duz SHA-256 dusuk-entropili icerige
+        # sozluk saldirisina izin verirdi; HMAC anahtari DPAPI-korumali -> DB dosyasi tek
+        # basina esitlik bilgisi sizdirmaz. Redact SONRASI hesaplanir (ayni ham -> ayni maske).
+        content_hash = hmac.new(
+            self._key(),
+            f"{source}|{type}|{json.dumps(content, sort_keys=True, ensure_ascii=False)}".encode("utf-8"),
+            hashlib.sha256).hexdigest()
+        cursor.execute(
+            "SELECT id FROM events WHERE content_hash = ? AND content NOT LIKE 'tombstone:%' LIMIT 1",
+            (content_hash,))
+        dup = cursor.fetchone()
+        if dup is not None:
+            # Tekrar: sayac + last_seen + TTL uzat; distilled=0 -> yukselen frekans damitmaya
+            # yeni sinyal olarak geri doner ("N kez tekrar = rutin").
+            cursor.execute(
+                "UPDATE events SET occurrence_count = occurrence_count + 1, last_seen = ?, "
+                "ttl_expiry = MAX(ttl_expiry, ?), distilled = 0 WHERE id = ?",
+                (now, ttl_expiry, dup["id"]))
+            conn.commit()
+            self.audit_chain.record(self.agent_id, action,
+                                    {**details, "result": "success", "event_id": dup["id"],
+                                     "deduplicated": True})
+            return {"status": "success", "event_id": dup["id"], "deduplicated": True}
+
         # L2: content at-rest AES-GCM sifrelenir (AAD = events|content). Metadata (source/type/ttl) plaintext.
         enc_content = cell_crypt.encrypt_cell(json.dumps(content), self._key(), cell_crypt.aad_event())
         cursor.execute(
-            "INSERT INTO events (timestamp, session_id, source, type, content, ttl_expiry) VALUES (?, ?, ?, ?, ?, ?)",
-            (now, self.agent_id, source, type, enc_content, ttl_expiry)
+            "INSERT INTO events (timestamp, session_id, source, type, content, ttl_expiry, "
+            "content_hash, occurrence_count, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            (now, self.agent_id, source, type, enc_content, ttl_expiry, content_hash, now)
         )
         event_id = cursor.lastrowid
         conn.commit()
 
         self.audit_chain.record(self.agent_id, action, {**details, "result": "success", "event_id": event_id})
-        return {"status": "success", "event_id": event_id}
+        return {"status": "success", "event_id": event_id, "deduplicated": False}

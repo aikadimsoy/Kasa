@@ -31,9 +31,17 @@ class AuditChain:
         result = cursor.fetchone()
         if result:
             return result[0]
-        else:
-            # "Genesis block" hash'i
-            return hashlib.sha256(b"genesis").hexdigest()
+        # DEBI-2: tablo bos ama arsivlenmis bir zincir varsa yeni kayit genesis'ten DEGIL
+        # son checkpoint muhurunden devam eder (zincir surekliligi korunur).
+        try:
+            cursor.execute("SELECT upto_hash FROM audit_checkpoint ORDER BY id DESC LIMIT 1")
+            cp = cursor.fetchone()
+            if cp:
+                return cp[0]
+        except sqlite3.OperationalError:
+            pass  # standalone/legacy kullanim: checkpoint tablosu yok -> genesis
+        # "Genesis block" hash'i
+        return hashlib.sha256(b"genesis").hexdigest()
 
     def record(self, agent_id: str, action: str, details: dict = None) -> str:
         """
@@ -93,10 +101,23 @@ class AuditChain:
         """
         cursor = self.conn.cursor()
         cursor.execute("SELECT id, timestamp, agent_id, action, details, previous_hash, entry_hash FROM audit ORDER BY id ASC")
-        
+        rows = cursor.fetchall()
+
         last_hash = hashlib.sha256(b"genesis").hexdigest()
-        
-        for row in cursor.fetchall():
+        # DEBI-2 muhur tohumu: arsiv sonrasi kalan ilk satirin previous_hash'i genesis degil,
+        # checkpoint muhuru olabilir. Muhur TABLODA dogrulanir (yalnizca iddia degil):
+        # eslesen upto_hash + daha kucuk upto_id yoksa zincir bozuk sayilir.
+        if rows and rows[0]['previous_hash'] != last_hash:
+            try:
+                cp = self.conn.execute(
+                    "SELECT 1 FROM audit_checkpoint WHERE upto_hash = ? AND upto_id < ?",
+                    (rows[0]['previous_hash'], rows[0]['id'])).fetchone()
+            except sqlite3.OperationalError:
+                cp = None  # checkpoint tablosu yok -> genesis bekleniyordu, uyusmadi
+            if cp is not None:
+                last_hash = rows[0]['previous_hash']
+
+        for row in rows:
             # Beklenen previous_hash'i kontrol et
             if row['previous_hash'] != last_hash:
                 print(f"Hata: Kayıt {row['id']} için hash zinciri bozuk! Beklenen: {last_hash}, Gelen: {row['previous_hash']}")
@@ -116,8 +137,49 @@ class AuditChain:
                 return False
             
             last_hash = recalculated_hash
-            
+
         return True
+
+    def create_checkpoint(self) -> dict:
+        """
+        Zinciri o anki son kayıtta MÜHÜRLER (DEBI-2 checkpoint).
+
+        Sebep: zincir yalnızca uca ekler, aradan silinemez; sınırsız büyür.
+        Sonuç: son entry_hash ayrı tabloya sabitlenir; ondan eski kayıtlar
+        archive_up_to() ile silinebilir, verify_chain mühürden tohumlanır
+        (T7 "değişiklik tespit edilebilir" garantisi korunur).
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id, entry_hash FROM audit ORDER BY id DESC LIMIT 1")
+        last = cursor.fetchone()
+        if last is None:
+            return {"status": "empty", "checkpoint_id": None}
+        cursor.execute("SELECT COUNT(*) FROM audit WHERE id <= ?", (last["id"],))
+        entry_count = cursor.fetchone()[0]
+        cursor.execute(
+            "INSERT INTO audit_checkpoint (created_at, upto_id, upto_hash, entry_count) VALUES (?, ?, ?, ?)",
+            (time.time(), last["id"], last["entry_hash"], entry_count))
+        self.conn.commit()
+        return {"status": "success", "checkpoint_id": cursor.lastrowid,
+                "upto_id": last["id"], "upto_hash": last["entry_hash"], "entry_count": entry_count}
+
+    def archive_up_to(self, checkpoint_id: int) -> dict:
+        """
+        Verilen checkpoint'in kapsadığı eski audit satırlarını siler (arşivleme).
+
+        Yalnızca MÜHÜRLENMİŞ aralık silinebilir -> mühürsüz kayıt asla kaybolmaz;
+        checkpoint yoksa ValueError. Silme sonrası zincir, kalan ilk satırın
+        previous_hash'i = mühür hash'i olduğu için doğrulanabilir kalır.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT upto_id FROM audit_checkpoint WHERE id = ?", (checkpoint_id,))
+        cp = cursor.fetchone()
+        if cp is None:
+            raise ValueError(f"Checkpoint bulunamadı: {checkpoint_id}")
+        cursor.execute("DELETE FROM audit WHERE id <= ?", (cp["upto_id"],))
+        deleted = cursor.rowcount
+        self.conn.commit()
+        return {"status": "success", "deleted": deleted, "upto_id": cp["upto_id"]}
 
 if __name__ == '__main__':
     # Test kodu
