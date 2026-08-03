@@ -16,6 +16,12 @@ Kullanim:
   python tools/migrate_l2_encrypt.py --vault-path d:/kasa --dry-run
   python tools/migrate_l2_encrypt.py --vault-path d:/kasa
 """
+
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (1 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".."))
 import sys
 import os
 import shutil
@@ -25,7 +31,7 @@ import hashlib
 import argparse
 import sqlite3
 
-sys.path.insert(0, "d:/kasa")
+sys.path.insert(0, _KASA_ROOT)
 from src.vault import cell_crypt
 
 
@@ -142,7 +148,7 @@ def _verify(vault_path: str) -> tuple:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--vault-path", default="d:/kasa")
+    ap.add_argument("--vault-path", default=_KASA_ROOT)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-backup", action="store_true")
     args = ap.parse_args()

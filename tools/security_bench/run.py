@@ -1,3 +1,9 @@
+
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (2 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))
 import sys
 import os
 import platform
@@ -15,7 +21,7 @@ from tools.security_bench.report import render
 # OS build + katman (base/peak) damgasi basilir. Windows/git-ozgu oldugu icin Controller elle yazdi.
 def _git_commit() -> str:
     try:
-        out = subprocess.run(["git", "-C", "d:/kasa", "rev-parse", "--short", "HEAD"],
+        out = subprocess.run(["git", "-C", _KASA_ROOT, "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=10)
         return out.stdout.strip() or "unknown"
     except Exception:
@@ -25,7 +31,7 @@ def _git_commit() -> str:
 def _config_hash() -> str:
     # browser_config.json + requirements.txt -> tek config-hash (ayni girdi = ayni hash = reprodusibilite)
     h = hashlib.sha256()
-    for p in ("d:/kasa/browser_config.json", "d:/kasa/requirements.txt"):
+    for p in (_os.path.join(_KASA_ROOT, "browser_config.json"), _os.path.join(_KASA_ROOT, "requirements.txt")):
         try:
             with open(p, "rb") as f:
                 h.update(f.read())
@@ -57,8 +63,8 @@ def _webview2_version() -> str:
 
 def main() -> int:
     try:
-        if "d:/kasa" not in sys.path:
-            sys.path.insert(0, "d:/kasa")
+        if _KASA_ROOT not in sys.path:
+            sys.path.insert(0, _KASA_ROOT)
 
         meta = {
             "date": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -90,7 +96,7 @@ def main() -> int:
                     "remediation": "fix module import"
                 })
         
-        docs = "d:/kasa/docs"
+        docs = _os.path.join(_KASA_ROOT, "docs")
         os.makedirs(docs, exist_ok=True)
         md, js = render(results, meta)
         

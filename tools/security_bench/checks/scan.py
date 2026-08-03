@@ -1,3 +1,9 @@
+
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (3 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "..", ".."))
 import subprocess
 import sys
 import json
@@ -50,7 +56,7 @@ def run():
         try:
             # Controller: .bak yedekleri src/ disina tasindi (_bak_archive) -> exclude'a gerek yok, gercek src taranir.
             cmd = [sys.executable, "-m", "bandit", "-r", "src", "-f", "json"]
-            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True,
+            process = subprocess.run(cmd, cwd=_KASA_ROOT, capture_output=True, text=True,
                                      encoding="utf-8", errors="replace", timeout=300)
             # encoding="utf-8": text=True, alt surecin ciktisini metne cevirirken Windows'ta
             # YEREL kod sayfasini kullanir (bu makinede cp1254 / Turkce). Cikti UTF-8 bayt
@@ -137,7 +143,7 @@ def run():
     else:
         try:
             cmd = [sys.executable, "-m", "pip_audit", "-r", "requirements.txt", "-f", "json"]
-            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True,
+            process = subprocess.run(cmd, cwd=_KASA_ROOT, capture_output=True, text=True,
                                      encoding="utf-8", errors="replace", timeout=300)
             # Kodlama neden acikca sabitleniyor: bkz. yukaridaki bandit cagrisinin notu.
             # Ozetle text=True yerel kod sayfasina duser ve cozumleme hatasi ciktiyi
@@ -239,7 +245,7 @@ def run():
             # bir config yedegi gercek anahtar tasiyabilir ve kucuk oldugu icin ucuzdur.
             cmd = [sys.executable, "-m", "detect_secrets", "scan", "--all-files",
                    "--exclude-files", _EXCLUDE]
-            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True,
+            process = subprocess.run(cmd, cwd=_KASA_ROOT, capture_output=True, text=True,
                                      encoding="utf-8", errors="replace", timeout=300)
             # Bu cagri kodlamaya en duyarli olani: detect-secrets TUM depoyu tarar ve bulgu
             # satirlarini ciktiya koyar; bu depoda Turkce yorum/dize bol oldugu icin cikti
@@ -333,7 +339,7 @@ def run():
     # kapanmis sayilmaz. Istisna: _bak_archive (arsivin yeri), kasa.db.bak* (migration yedegi),
     # .git/__pycache__/venv gurultu dizinleri.
     try:
-        _repo = "d:/kasa"
+        _repo = _KASA_ROOT
         _skip = {"_bak_archive", ".git", "__pycache__", ".pytest_cache",
                  ".venv", "venv", "node_modules"}
         _ARCHIVE_MAX = 200  # _bak_archive KOR NOKTA olmasin: sinir asilirsa retention bozuk -> WARN.

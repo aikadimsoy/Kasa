@@ -74,6 +74,18 @@ jobs:
           #                build_kasa.ps1:56; testler yalniz 'import webview'in calismasini
           #                istedigi icin alt sinir sabitlenmedi.)
           pip install pytest httpx pywebview
+          # TR-NOT (2026-08-03, ILK CI kosusundan OLCULDU): asagidaki uc alet
+          # tools/security_bench/checks/scan.py tarafindan importlib.util.find_spec ile
+          # aranir; YOKSA ilgili kontrol SKIP'e duser ve scan.run() hicbir dis surec
+          # cagirmaz. Bunun sonucu "test gecti" degil, testin OLCEMEMESIdir:
+          #   test_bench_subprocess_encoding.py:60  "scan.run() hic dis alet cagirmadi"
+          #   test_bench_scan_scope.py:121          cmd None -> AttributeError
+          # yani 6 test kirmizi yandi. Aletleri kurmak, testleri susturmaktan farkli
+          # olarak olcumu GERI GETIRIR -- dislemek olcumu kaybettirirdi.
+          #   bandit         -> scan.py:38  SCAN-BANDIT
+          #   pip-audit      -> scan.py:126 SCAN-DEPS   (modul adi: pip_audit)
+          #   detect-secrets -> scan.py:207 SCAN-SECRETS
+          pip install bandit pip-audit detect-secrets
 
       - name: Kurulan surumleri damgala
         shell: pwsh

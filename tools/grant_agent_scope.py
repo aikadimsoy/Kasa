@@ -24,6 +24,12 @@ hicbir sey calismaz. "system" (reserved) ve "admin:grant" (kendine-tirmanma) bil
 
 from __future__ import annotations
 
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (1 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".."))
+
 import argparse
 import os
 import sys
@@ -100,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("action", choices=["list", "grant", "revoke"])
     p.add_argument("agent_id")
     p.add_argument("scope", nargs="?", default=None)
-    p.add_argument("--vault", default=os.environ.get("KASA_VAULT_PATH", "d:/kasa"),
+    p.add_argument("--vault", default=os.environ.get("KASA_VAULT_PATH", _KASA_ROOT),
                    help="vault path (default: KASA_VAULT_PATH or d:/kasa)")
     args = p.parse_args(argv)
 

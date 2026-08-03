@@ -15,6 +15,12 @@ ISARETLENIR ve raporda oyle gorunur (dürüst sinir).
 
 from __future__ import annotations
 
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (2 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))
+
 import json
 import re
 import urllib.error
@@ -324,7 +330,7 @@ def probe_json(model: str) -> list[dict]:
 def _load_attacks() -> list[dict]:
     """Saldirilari mevcut red-team standardindan okur (tek kaynak; kopyalama yok)."""
     try:
-        with open("d:/kasa/_orch/redteam/attack_standard.json", "r", encoding="utf-8") as f:
+        with open(_os.path.join(_KASA_ROOT, "_orch/redteam/attack_standard.json"), "r", encoding="utf-8") as f:
             return json.load(f)["DEFAULT_ATTACKS"]
     except Exception:
         return []

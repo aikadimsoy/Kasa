@@ -1,3 +1,9 @@
+
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (3 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "..", ".."))
 import os
 import tempfile
 import shutil
@@ -10,7 +16,7 @@ def run():
     
     try:
         # CRYPTO-EXPORT Check
-        tmpdir = tempfile.mkdtemp(dir="d:/kasa")
+        tmpdir = tempfile.mkdtemp(dir=_KASA_ROOT)
         vault_path = os.path.join(tmpdir, "vault")
         os.makedirs(vault_path)
         v = Vault(vault_path=vault_path)

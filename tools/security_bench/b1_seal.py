@@ -14,6 +14,12 @@ oldugunda muhru (docs/B1_SEAL.json + tag) KENDISI dusurur:
 seal_decision() ve _serves_kasa() GUI'siz test edilir (tests/test_b1_seal.py). run_live_seal()
 canli WebView2 + owner-mevcudiyeti ister; sinyalleri gercek motordan toplar.
 """
+
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (2 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))
 import json
 import os
 import re
@@ -21,7 +27,7 @@ import subprocess
 import sys
 import time
 
-REPO = r"d:/kasa"
+REPO = _KASA_ROOT
 SEAL_PATH = REPO + "/docs/B1_SEAL.json"
 
 

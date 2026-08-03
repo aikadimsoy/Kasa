@@ -12,6 +12,12 @@ Kullanim:
   python tools/drift_canary.py              # karsilastir; drift varsa exit!=0
   python tools/drift_canary.py --rerun      # drift'te benchmark'i yeniden kos
 """
+
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (1 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".."))
 import sys
 import os
 import json
@@ -19,10 +25,10 @@ import platform
 import argparse
 import subprocess
 
-sys.path.insert(0, "d:/kasa")
+sys.path.insert(0, _KASA_ROOT)
 from tools.security_bench.run import _webview2_version, _config_hash
 
-DEFAULT_BASELINE = "d:/kasa/docs/drift_baseline.json"
+DEFAULT_BASELINE = _os.path.join(_KASA_ROOT, "docs/drift_baseline.json")
 
 
 def snapshot() -> dict:
@@ -79,7 +85,7 @@ def main() -> int:
     print("[drift] !!! DRIFT TESPIT EDILDI:", json.dumps(res["diff"], ensure_ascii=False))
     if args.rerun:
         print("[drift] benchmark yeniden kosuluyor (drift-tetikli)...")
-        subprocess.run([sys.executable, "-m", "tools.security_bench"], cwd="d:/kasa")
+        subprocess.run([sys.executable, "-m", "tools.security_bench"], cwd=_KASA_ROOT)
     print("[drift] NOT: degisim INCELENDIKTEN sonra --update ile baseline'i guncelle (otomatik degil).")
     return 3  # drift -> non-zero (cron/CI yakalasin)
 

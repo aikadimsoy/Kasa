@@ -14,6 +14,12 @@ Her modelden sonra servis modeli bosaltsin diye kisa bekleme konur.
 
 from __future__ import annotations
 
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (2 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu araci calismaz kilardi.
+_KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))
+
 import argparse
 import datetime
 import os
@@ -23,19 +29,19 @@ import subprocess
 import sys
 import time
 
-if "d:/kasa" not in sys.path:
-    sys.path.insert(0, "d:/kasa")
+if _KASA_ROOT not in sys.path:
+    sys.path.insert(0, _KASA_ROOT)
 
 from tools.model_bench import probes
 from tools.model_bench.report import render
 
-DOCS_DIR = "d:/kasa/docs"
+DOCS_DIR = _os.path.join(_KASA_ROOT, "docs")
 COOLDOWN_S = 10  # modeller arasi soguma (GPU nefes alsin)
 
 
 def _git_commit() -> str:
     try:
-        out = subprocess.run(["git", "-C", "d:/kasa", "rev-parse", "--short", "HEAD"],
+        out = subprocess.run(["git", "-C", _KASA_ROOT, "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=10)
         return out.stdout.strip() or "unknown"
     except Exception:
