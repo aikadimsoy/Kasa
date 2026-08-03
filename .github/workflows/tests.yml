@@ -1,0 +1,162 @@
+# KASA test CI - pytest'i her push/PR'da GERCEKTEN kosar.
+#
+# TR-NOT (ogretici): Bu is akisi YALNIZ Windows'ta kosar. Sebep uydurma degil, olcum:
+#   - tray katmani PyQt5 (src/tray/app.py:3), tarayici katmani pywebview/WebView2
+#     (src/browser/browser_window.py:1), vault anahtari DPAPI (src/vault/encryption.py).
+#   Linux runner'da bu katmanlar YOK; orada yesil yanan bir CI yanlis guven verir.
+#
+# Python 3.12 SABIT. OLCUMUN DURUST KAPSAMI (abartmamak icin acikca yaziliyor):
+#   docs/EXE_PACKAGING_LOG.md:104 "Spike-2 (pywebview penceresi), Py3.14: SEGFAULT
+#   (exit 3)" olcumu MASAUSTU/EXE yolunda (Nuitka ile derlenmis ikili, pywebview
+#   penceresi acilirken) yapildi; build_kasa.ps1:10 ve 29-31 bu yuzden 3.12 dayatir.
+#   Bu olcum "test takimi 3.14'te cokuyor" DEMEZ - README.md:53 tam tersini kayda
+#   gecirir: takim ve guvenlik tezgahi en son 3.14.5 altinda kosuldu. Python 3.13
+#   HIC olculmedi.
+# Bu is akisi yine de yalniz 3.12 kosar: sahibin dagittigi surum odur, matris
+# Windows runner dakikasini ikiye katlar ve 3.13/3.14 icin bir hedef yoktur.
+# Yani bu bir TERCIH; "3.12 disinda calismaz" diye olculmus bir iddia DEGILDIR.
+#
+# DURUSTLUK NOTU: asagida bazi test dosyalari DISLANIR. Her disleme icin sebep ve
+# dosya:satir dayanagi yazildi. Disleme "gecti" demek DEGILDIR; kosulmadi demektir.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+
+# Ayni dal icin ust uste kosumlari iptal et (Windows runner dakikasi pahali).
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (windows, py3.12)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      # TR-NOT: cocuk sureclerin stdout'u da UTF-8 olsun.
+      # OLCUM DAYANAGI: tests/test_bench_subprocess_encoding.py:76 bir alt-surece
+      # Turkce ozel karakter (s-cedilla, dotless-i, g-breve) yazdirir. Runner'in yerel
+      # kod sayfasi cp1252'dir ve bu karakterler cp1252'de YOKTUR -> alt surec
+      # UnicodeEncodeError ile bos cikti verir -> test kirmizi yanar. PYTHONIOENCODING
+      # miras alinir ve bu yanlis-kirmiziyi (ortam farki, kod hatasi degil) kapatir.
+      # Sadece G/C kodlamasini sabitler; open() varsayilanina dokunmaz.
+      PYTHONIOENCODING: utf-8
+
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Python 3.12 kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      # ---------------------------------------------------------------------------
+      # D:\kasa YOL KANCASI - kalici cozum DEGIL, dogrulanmis bir gecici koprudur.
+      #
+      # OLCUM: depo genelinde mutlak yol gomulu. Ornekler:
+      #   tests/conftest.py:2,15            sys.path.insert(0, "d:/kasa") + repo_root fixture
+      #   tests/test_browser_gate.py:6      REPO = "d:/kasa"
+      #   tests/test_terms_gate.py:82       open("d:/kasa/TERMS_OF_USE.md")
+      #   tests/test_guard_retention.py:7   sys.path.insert(0, "d:/kasa/_orch/loop")
+      #   tools/security_bench/b1_seal.py:24, tools/security_bench/checks/scan.py:53
+      #   src/browser/browser_window.py:1260
+      # Runner'da checkout dizini D:\kasa DEGILDIR; bu dosyalar bulunamaz ve testler
+      # coker. Junction (NTFS dizin baglantisi, yonetici yetkisi ISTEMEZ) ile D:\kasa
+      # checkout dizinine baglanir. DOGRU COZUM: yollari depo-koku-goreli hale getirmek
+      # (pathlib.Path(__file__).resolve().parents[1]); bu is akisi onu YAPMAZ, cunku
+      # test dosyalarini degistirmek bu gorevin kapsami disindaydi.
+      # UYARI: self-hosted runner'da D:\kasa zaten sahibin CANLI calisma agacidir. O
+      # durumda asagidaki sentinel dogrulamasi devreye girer: pytest'in PR'in kodunu
+      # degil baska bir agaci olcmesi (sahte sonuc) ihtimali kirmiziya cevrilir.
+      # ---------------------------------------------------------------------------
+      - name: 'D:\kasa junction (gomulu mutlak yollar icin)'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'D:\')) {
+            Write-Error "D: surucusu yok. Depodaki gomulu 'd:/kasa' yollari cozulemez; testler ANLAMLI kosamaz. Sahte-yesil yerine kirmizi."
+            exit 1
+          }
+          if (-not (Test-Path 'D:\kasa')) {
+            New-Item -ItemType Junction -Path 'D:\kasa' -Target "$env:GITHUB_WORKSPACE" | Out-Null
+            Write-Host "junction kuruldu: D:\kasa -> $env:GITHUB_WORKSPACE"
+          } else {
+            Write-Host "D:\kasa zaten var -> junction olusturulmadi; ayni agac mi diye DOGRULANIYOR"
+          }
+          # SAHTE-SONUC KALKANI: D:\kasa GERCEKTEN bu checkout mu? Sentinel dosyasi
+          # workspace'e yazilir; D:\kasa'dan gorunmuyorsa oradaki agac BASKA bir agactir
+          # (ornek: self-hosted runner'da sahibin commit edilmemis calisma agaci).
+          # O halde pytest sonucu PR hakkinda BIR SEY SOYLEMEZ -> kirmizi ver, yesil verme.
+          $sentinel = "kasa_ci_sentinel_$([guid]::NewGuid().ToString('N')).tmp"
+          $wsFile = Join-Path $env:GITHUB_WORKSPACE $sentinel
+          Set-Content -LiteralPath $wsFile -Value 'ci' -NoNewline
+          $seen = Test-Path -LiteralPath (Join-Path 'D:\kasa' $sentinel)
+          Remove-Item -LiteralPath $wsFile -Force
+          if (-not $seen) {
+            Write-Error "D:\kasa bu checkout DEGIL (sentinel gorunmedi). pytest baska bir agaci olcerdi = sonuc bu PR hakkinda degildir. Durduruluyor."
+            exit 1
+          }
+          Write-Host "dogrulandi: D:\kasa == $env:GITHUB_WORKSPACE"
+
+      - name: Bagimliliklari kur
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # TR-NOT: asagidakiler requirements.txt'te YOK ama testlerin kosmasi icin
+          # ZORUNLU. Uydurma degil, import zincirinden okundu:
+          #   pytest    -> test kosucusu (calisma-ani bagimliligi degil, o yuzden
+          #                requirements.txt'e eklenmedi)
+          #   httpx     -> tests/conftest.py:11 'fastapi.testclient.TestClient';
+          #                starlette'in TestClient'i httpx uzerine kuruludur
+          #   pywebview -> src/browser/browser_window.py:1 'import webview'; bu modulu
+          #                tests/test_b1_bootstrap.py:13 ve tests/test_l4_toctou_gate.py:14
+          #                import eder. (Sahibin makinesinde olculen surum 6.2.1 -
+          #                build_kasa.ps1:56; testler yalniz 'import webview'in calismasini
+          #                istedigi icin alt sinir sabitlenmedi.)
+          pip install pytest httpx pywebview
+
+      - name: Kurulan surumleri damgala
+        shell: pwsh
+        run: |
+          python -c "import sys; print('python', sys.version)"
+          pip list
+
+      # ---------------------------------------------------------------------------
+      # DISLENEN TESTLER (her biri icin sebep + dayanak; 'gecti' DEGIL 'kosulmadi'):
+      #
+      # tests/browser
+      #   Tarayici odakli dizin; canli WebView2/pywebview yuzeyine bagli. Proje
+      #   kuralina gore ayri kapida kosar (dayanak: tests/test_browser_gate.py:64
+      #   "Canli WebView2 kosumu AYRI kapi (Kapi-2)" ve tests/test_b1_bootstrap.py:5
+      #   "Canli CoreWebView2 ContinueWith davranisi AYRI kapi (Kapi-2)"; ayrica
+      #   CONTRIBUTING.md:81-82 ayni dislemeyi yerel kosum icin de yazar).
+      #
+      # tests/test_fp_b2_webgl.py
+      #   tests/test_fp_b2_webgl.py:20 'run_gate(mode="fingerprint")' GERCEK KASA
+      #   tarayicisini acar ve 8901 portundaki adversary sunucusuna gider. Headless
+      #   runner'da GPU/WebView2 yok -> bu test CI'da olcum yapamaz.
+      #
+      # tests/test_distill_injection.py
+      #   tests/test_distill_injection.py:25 'DistillEngine(...).run_batch()' CANLI
+      #   Ollama (localhost:11434) cagirir; monkeypatch YOK. Ollama olmayinca
+      #   src/distill/engine.py:188-189 erken doner, vault'a hicbir fact yazilmaz ve
+      #   testin "enjekte edilen fact yazilmadi" iddiasi BOSA gecer = YANLIS YESIL.
+      #   Bu yuzden bilerek DISLANDI: kosulmayan test, sahte gecen testten iyidir.
+      #   Gercek kosumu icin yerelde Ollama ayakta iken: pytest tests/test_distill_injection.py
+      #
+      # NOT (tam dislenmedi): tests/test_advanced_redteam.py icindeki
+      #   test_denial_of_wallet_batch_bounded da Ollama'ya ulasmaya calisir, ama olctugu
+      #   sey SQL 'LIMIT ?' siniridir (src/distill/engine.py:116-118) ve model erisilemese
+      #   bile processed=len(events) uzerinden GERCEKTEN olculur. Diger iki test
+      #   urlopen'i monkeypatch eder (deterministik). Bu yuzden dosya CI'da kalir.
+      # ---------------------------------------------------------------------------
+      - name: pytest
+        shell: pwsh
+        working-directory: 'D:\kasa'
+        run: pytest tests/ -q --ignore=tests/browser --ignore=tests/test_fp_b2_webgl.py --ignore=tests/test_distill_injection.py

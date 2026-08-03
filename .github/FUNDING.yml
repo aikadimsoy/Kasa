@@ -1,0 +1,24 @@
+# KASA - GitHub "Sponsor" dugmesi yapilandirmasi.
+#
+# TR-NOT (ogretici): Bu dosya SU AN tamamen yorumdur; GitHub bos yapilandirmayi
+# sorunsuz okur ve Sponsor dugmesini GOSTERMEZ. Sebep: kullanici adi UYDURULMADI.
+# Yanlis bir kullanici adi, bagis yapmak isteyeni baskasinin sayfasina gonderir.
+#
+# SAHIBIN YAPACAGI (tek adim): asagidaki satirlardan kullandiklarinin basindaki
+# '#' isaretini kaldir ve KENDI kullanici adini yaz. Ornek:
+#   github: erhan-kullanici-adi
+#   ko_fi: erhan-kofi-adi
+#
+# On kosul: GitHub Sponsors icin once https://github.com/sponsors adresinden
+# hesabin etkinlestirilmis olmasi gerekir; etkin degilken alan doldurulursa
+# dugme yine gorunmez.
+#
+# github: <sahip kendi GitHub kullanici adini buraya yazmali>
+# ko_fi: <sahip kendi Ko-fi kullanici adini buraya yazmali>
+#
+# Diger platformlar (kullanilmiyorsa yorumda kalsin):
+# open_collective: <hesap adi>
+# liberapay: <hesap adi>
+# custom: ["https://ornek.example/bagis"]
+#
+# NLnet NGI Zero basvurusu ayri bir kanaldir (hibe); bu dosya ile ilgisi yoktur.

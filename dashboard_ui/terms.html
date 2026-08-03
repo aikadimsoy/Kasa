@@ -1,0 +1,137 @@
+<!-- kasa/dashboard_ui/terms.html -->
+<!-- Ilk-acilis kullanim sartlari kapisi. Self-contained (air-gap: dis kaynak YOK). -->
+<!-- Token server-tarafi enjekte edilir (__KASA_TOKEN__); kabul ucu bearer korumalidir. -->
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KASA — Kullanım Şartları</title>
+  <style>
+    :root {
+      --bg: #0D1017; --panel: #161B26; --line: #232A38;
+      --text: #E6EAF2; --muted: #9AA4B2; --accent: #E02244; --accent-weak: #2A1520;
+      --ok: #2EA043;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font: 15px/1.6 "Segoe UI", system-ui, sans-serif;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 720px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+      display: flex; flex-direction: column; max-height: calc(100vh - 48px);
+    }
+    header { padding: 20px 26px; border-bottom: 1px solid var(--line); }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: .3px; }
+    header .ver { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .brand-dot { color: var(--accent); }
+    .body { padding: 8px 26px 4px; overflow-y: auto; }
+    .body h2 { font-size: 14px; margin: 18px 0 6px; color: var(--text); }
+    .body p, .body li { color: var(--muted); font-size: 13.5px; margin: 6px 0; }
+    .body strong { color: var(--text); }
+    .body ul { margin: 6px 0; padding-left: 18px; }
+    .honest {
+      background: var(--accent-weak); border: 1px solid #3A1C28;
+      border-radius: 8px; padding: 10px 14px; margin: 12px 0;
+    }
+    footer {
+      padding: 16px 26px; border-top: 1px solid var(--line);
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .chk { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+    .chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+    .spacer { flex: 1 1 auto; }
+    button {
+      font: inherit; font-size: 14px; padding: 9px 18px; border-radius: 9px;
+      border: 1px solid var(--line); cursor: pointer; background: transparent; color: var(--muted);
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    button.primary:disabled { background: #3a2830; border-color: #3a2830; color: #7c6b72; cursor: not-allowed; }
+    #err { color: var(--accent); font-size: 12px; margin-left: 4px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <h1>KASA <span class="brand-dot">—</span> Kullanım Şartları</h1>
+      <div class="ver">Sürüm 1.0 · Egemen Hafıza · yerel-öncelikli</div>
+    </header>
+    <div class="body">
+      <h2>1. Yazılımın Niteliği</h2>
+      <p>KASA, kişisel hafıza/kayıt kasası olarak çalışan <strong>yerel-öncelikli</strong> bir masaüstü uygulamasıdır. Tüm işlevi kendi bilgisayarınızda çalışır.</p>
+
+      <h2>2. Gizlilik ve Veri</h2>
+      <ul>
+        <li>Yalnızca <strong>127.0.0.1 (yerel makine)</strong> üzerinde çalışır; verinizi buluta/üçüncü tarafa <strong>göndermez</strong>.</li>
+        <li><strong>Telemetri yoktur.</strong> Sizi izlemez, kullanım verisi toplamaz.</li>
+        <li>Verileriniz cihazınızda kalır; yedekleme ve silme sizin sorumluluğunuzdadır.</li>
+      </ul>
+
+      <h2>3. Güvenlik — Dürüst Beyan</h2>
+      <div class="honest">
+        <p><strong>Aşırı iddia yoktur.</strong> KASA kendini "askeri düzey", "kurumsal düzey" veya "kırılamaz" olarak <strong>tanımlamaz</strong>. Hassas dizeleri maskeleme + hücre düzeyi AES-GCM ile korumaya çalışır; tam-veritabanı disk şifrelemesi kademelidir ve arayüz durumu dürüstçe belirtir.</p>
+      </div>
+      <ul>
+        <li>Şifreleme anahtarı Windows <strong>DPAPI</strong> ile hesabınıza bağlıdır; sır kaynak kodda değildir (Kerckhoffs).</li>
+        <li>Yazılım <strong>"OLDUĞU GİBİ"</strong> sağlanır; garanti verilmez, veri kaybı/zarardan geliştirici sorumlu tutulamaz.</li>
+      </ul>
+
+      <h2>4. Sorumluluğunuz</h2>
+      <p>Bilgisayarınızın ve kullanıcı hesabınızın güvenliği sizdedir (DPAPI anahtarı hesabınıza bağlıdır). KASA'yı yasalara uygun ve yalnızca kendi verileriniz için kullanın.</p>
+
+      <h2>5. Gelişmiş (Kilitli) Kademe</h2>
+      <p>Bazı agresif özellikler <strong>sahip-korumalı</strong>, şifreyle kilitli bir panel arkasındadır; etkinleştirme ve sonuçları sizin sorumluluğunuzdadır.</p>
+
+      <h2>6. Üçüncü Taraf Bileşenler</h2>
+      <p>KASA, Microsoft <strong>WebView2 Runtime</strong> ve <strong>Visual C++ Redistributable</strong> gerektirebilir. Bunlar Microsoft'a aittir. KASA eksikliği <strong>yerel</strong> tespit eder ve eksikse resmi indirme bağlantısını açmayı önerir; onayınız olmadan kurulum yapmaz.</p>
+
+      <h2>7. Değişiklikler</h2>
+      <p>Şartlar güncellenebilir; sürüm değişirse güncel şartlar yeniden gösterilir. Tam metin: <strong>TERMS_OF_USE.md</strong>.</p>
+    </div>
+    <footer>
+      <label class="chk"><input type="checkbox" id="agree"> Okudum ve kabul ediyorum</label>
+      <span id="err"></span>
+      <span class="spacer"></span>
+      <button id="decline">Reddet ve Çık</button>
+      <button id="accept" class="primary" disabled>Kabul Et ve Devam</button>
+    </footer>
+  </div>
+
+  <script>
+    const TOKEN = "__KASA_TOKEN__";
+    const agree = document.getElementById("agree");
+    const accept = document.getElementById("accept");
+    const decline = document.getElementById("decline");
+    const err = document.getElementById("err");
+
+    agree.addEventListener("change", () => { accept.disabled = !agree.checked; });
+
+    accept.addEventListener("click", async () => {
+      accept.disabled = true; err.textContent = "";
+      try {
+        const r = await fetch("/v1/terms/accept", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + TOKEN },
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        window.location.href = "/dashboard";
+      } catch (e) {
+        err.textContent = "Kayıt başarısız: " + e.message;
+        accept.disabled = false;
+      }
+    });
+
+    decline.addEventListener("click", () => {
+      // Kabul edilmedi: pano acilmaz. Pencereyi kapatmayi dene; olmazsa bilgi ver.
+      document.body.innerHTML =
+        '<div style="color:#9AA4B2;font:15px/1.6 system-ui;text-align:center;padding:40px">' +
+        'Kullanım şartları reddedildi. KASA kapatılıyor — pencereyi kapatabilirsiniz.</div>';
+      try { window.close(); } catch (e) {}
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# Citation File Format — https://citation-file-format.github.io/
+# Turkce not: bu dosya, KASA'ya akademik/teknik atif yapmak isteyenler icin makine-okunur
+# kunye saglar. GitHub bunu okuyup depo sayfasinda "Cite this repository" dugmesi gosterir.
+# Hibe basvurulari ve arastirma atiflari icin faydalidir.
+cff-version: 1.2.0
+message: "Bu yazilimi kullanirsaniz lutfen asagidaki gibi atif verin. / If you use this software, please cite it as below."
+title: "KASA — Sovereign, Local-First Encrypted Memory Vault for AI Agents"
+abstract: >-
+  KASA, Windows uzerinde calisan yerel-oncelikli (local-first), sifreli bir kisisel
+  hafiza kasasidir. Yapay zeka ajanlarina (bulut veya yerel) Model Context Protocol
+  uzerinden izin-aracili erisim verir; veri kullanicinin makinesinden cikmaz.
+  Cekirdek tasarim: deny-by-default izin hesabi (karar deterministik kodda, modelde
+  degil), hucre-basi AES-GCM sifreleme, Windows DPAPI ile baglanmis anahtar,
+  hash-zincirli denetim kaydi ve "olculene kadar muhurlenmez" olcum-butunlugu disiplini.
+type: software
+
+authors:
+  - given-names: Erhan
+    # family-names: <sahip doldurmali>   # atif kunyesinin tam olmasi icin soyadi eklenebilir
+    # orcid: <varsa>
+
+license: AGPL-3.0-or-later
+# Ticari lisans secenegi icin bkz. COMMERCIAL.md (dual-lisans).
+
+version: "0.1.0"          # MVP-0; surum numarasi sahip tarafindan ILAN edilir (KURALLAR T2)
+date-released: "2026-08-03"
+
+keywords:
+  - local-first
+  - privacy
+  - data-sovereignty
+  - ai-agents
+  - model-context-protocol
+  - prompt-injection
+  - encrypted-storage
+  - audit-log
+  - windows
+
+# repository-code: <GitHub deposu acildiktan sonra doldurulacak>

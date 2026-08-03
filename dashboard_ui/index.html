@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KASA — Güvenlik Panosu</title>
+<!--
+  Tasarim kaynagi: design_system/tokens.css (tek kaynak). Token'lar buraya inline.
+  Standart: docs/UI_UX_STANDARD.md. Veri: /v1/dashboard/{stats,events,profile} (read-through-redact).
+  __KASA_TOKEN__ sunucu tarafinda gercek bearer ile degistirilir (localhost owner UI, v1).
+-->
+<style>
+  :root{
+    --kasa-primary:#E02244; --kasa-primary-hover:#C41E3D; --kasa-accent:#1BA7C2;
+    --kasa-n950:#0D1017; --kasa-n900:#12161F; --kasa-n800:#1A2029; --kasa-n700:#242B37;
+    --kasa-n500:#5B6472; --kasa-n300:#9AA3B2; --kasa-n100:#E4E7EC;
+    --kasa-secure:#2FBF71; --kasa-warning:#E8A13C; --kasa-danger:#E5484D; --kasa-private:#8B5CF6;
+    --kasa-e1:0 1px 2px rgba(0,0,0,.24); --kasa-e2:0 4px 12px rgba(0,0,0,.32);
+    --kasa-t-micro:120ms; --kasa-t-std:200ms; --kasa-ease:cubic-bezier(0.2,0,0,1);
+    --kasa-r-sm:8px; --kasa-r-md:12px;
+    --kasa-font-ui:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --kasa-font-mono:'JetBrains Mono','Cascadia Code',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--kasa-n950);color:var(--kasa-n100);font-family:var(--kasa-font-ui);
+    font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .mono{font-family:var(--kasa-font-mono);font-variant-numeric:tabular-nums}
+
+  .app{display:flex;min-height:100vh}
+  .rail{width:56px;flex-shrink:0;background:var(--kasa-n900);box-shadow:var(--kasa-e2);
+    display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;
+    position:sticky;top:0;height:100vh;z-index:2}
+  .rail .brand{width:14px;height:14px;border-radius:50%;background:var(--kasa-primary);
+    box-shadow:0 0 0 4px rgba(224,34,68,.18);margin-bottom:10px}
+  .rail button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    background:transparent;border:none;border-radius:var(--kasa-r-md);color:var(--kasa-n300);cursor:pointer;
+    transition:background var(--kasa-t-micro) var(--kasa-ease),color var(--kasa-t-micro) var(--kasa-ease)}
+  .rail button:hover{background:var(--kasa-n800);color:var(--kasa-n100)}
+  .rail button.active{background:var(--kasa-n800);color:var(--kasa-n100)}
+  .rail button.locked{color:var(--kasa-n500);margin-top:auto;cursor:not-allowed}
+  .rail button:focus-visible{outline:2px solid var(--kasa-accent);outline-offset:2px}
+  .rail svg{width:20px;height:20px}
+
+  .main{flex:1;min-width:0;padding:26px 32px 64px;max-width:1180px}
+
+  .notice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:rgba(139,92,246,.10);border:1px solid rgba(139,92,246,.35);
+    border-radius:var(--kasa-r-sm);padding:9px 13px;margin-bottom:24px;font-size:12.5px;color:var(--kasa-n300)}
+  .notice b{color:var(--kasa-private);font-weight:600}
+
+  .topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:26px}
+  h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-0.01em}
+  .topbar .sub{color:var(--kasa-n500);font-size:12.5px;margin-top:5px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--kasa-n800);
+    border:1px solid var(--kasa-n700);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--kasa-n300)}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .dot.secure{background:var(--kasa-secure);box-shadow:0 0 0 3px rgba(47,191,113,.16)}
+  .dot.warn{background:var(--kasa-warning);box-shadow:0 0 0 3px rgba(232,161,60,.16)}
+  .dot.danger{background:var(--kasa-danger);box-shadow:0 0 0 3px rgba(229,72,77,.16)}
+  .dot.priv{background:var(--kasa-private)}
+
+  #status{margin-bottom:18px;font-size:12.5px;padding:9px 13px;border-radius:var(--kasa-r-sm);display:none}
+  #status.err{display:block;background:rgba(229,72,77,.10);border:1px solid rgba(229,72,77,.35);color:#F0999C}
+  #status.load{display:block;background:var(--kasa-n900);border:1px solid var(--kasa-n700);color:var(--kasa-n300)}
+
+  /* SEBEP: author stylesheet, tarayicinin UA kurali olan [hidden]{display:none}'i EZER.
+     .chat-busy{display:flex} gibi her display kurali, hidden ozniteligini etkisiz birakiyordu:
+     ucu de (#ajan-busy, #race-busy, #audit-busy) DAIMA gorunuyor ve DAIMA donuyordu ->
+     "Model dusunuyor / Testler calisiyor" gostergesi hicbir sey olcmuyordu (yanlis-sinyal).
+     JS'teki .hidden = true/false yonetimi dogruydu ama etkisizdi.
+     SONUC: global kural. .view[hidden] nokta-yamasi bunun icine dahil (tekil kaynak). */
+  [hidden]{display:none!important}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px}
+  .kpi{background:var(--kasa-n900);border:1px solid var(--kasa-n700);border-radius:var(--kasa-r-md);
+    padding:15px 16px;box-shadow:var(--kasa-e1);position:relative;overflow:hidden}
+  .kpi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--kasa-n500)}
+  .kpi .val{font-size:30px;font-weight:600;margin-top:8px;letter-spacing:-0.02em;line-height:1}
+  .kpi .val.sm{font-size:22px;margin-top:12px}
+  .kpi .meta{font-size:12px;color:var(--kasa-n300);margin-top:9px;display:flex;align-items:center;gap:7px}
+  .kpi .stripe{position:absolute;left:0;top:0;bottom:0;width:3px}
+  .stripe.s-secure{background:var(--kasa-secure)} .stripe.s-warn{background:var(--kasa-warning)}
+  .stripe.s-primary{background:var(--kasa-primary)} .stripe.s-accent{background:var(--kasa-accent)}
+  .tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+  .tag.ok{background:rgba(47,191,113,.14);color:var(--kasa-secure)}
+  .tag.warn{background:rgba(232,161,60,.14);color:var(--kasa-warning)}
+
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:18px;align-items:start}
+  @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--kasa-n900);border:1px solid var(--kasa-n700);border-radius:var(--kasa-r-md);box-shadow:var(--kasa-e1);margin-bottom:18px}
+  .panel:last-child{margin-bottom:0}
+  .panel > h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--kasa-n500);
+    margin:0;padding:15px 18px 13px;border-bottom:1px solid var(--kasa-n800);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .panel > h2 .hint{font-weight:400;letter-spacing:0;text-transform:none;color:var(--kasa-n500);font-size:11.5px}
+  .panel .body{padding:14px 18px 16px}
+  .panel .body.flush{padding:6px 18px 10px}
+  .stack{display:grid;gap:0}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{text-align:left;font-weight:500;color:var(--kasa-n500);font-size:11px;text-transform:uppercase;
+    letter-spacing:.05em;padding:9px 10px;border-bottom:1px solid var(--kasa-n800)}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--kasa-n800);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--kasa-n800)}
+  td .src{color:var(--kasa-n300)}
+  td.val{color:var(--kasa-n100);max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pill{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .pill.masked{background:rgba(47,191,113,.14);color:var(--kasa-secure)}
+  .pill.raw{background:rgba(232,161,60,.14);color:var(--kasa-warning)}
+
+  .bars{display:grid;gap:13px}
+  .bar .row{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px}
+  .bar .row .n{color:var(--kasa-n300)}
+  .track{height:7px;background:var(--kasa-n800);border-radius:999px;overflow:hidden}
+  .fill{height:100%;border-radius:999px;transition:width var(--kasa-t-std) var(--kasa-ease)}
+  .fill.entropy{background:var(--kasa-accent)} .fill.base64{background:var(--kasa-private)}
+  .fill.cred{background:var(--kasa-primary)} .fill.hex{background:var(--kasa-n500)}
+  .fill.phrase{background:var(--kasa-warning)}
+
+  .posture{display:grid;gap:1px;background:var(--kasa-n800);border-radius:var(--kasa-r-sm);overflow:hidden}
+  .prow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--kasa-n900);padding:11px 14px}
+  .prow .k{font-size:12.5px;color:var(--kasa-n300)}
+  .prow .k small{display:block;color:var(--kasa-n500);font-size:11px;margin-top:1px}
+  .prow .v{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--kasa-n300);white-space:nowrap}
+
+  .empty{color:var(--kasa-n500);font-size:12.5px;padding:6px 2px}
+  .foot{margin-top:30px;color:var(--kasa-n500);font-size:11.5px;border-top:1px solid var(--kasa-n800);padding-top:14px;line-height:1.7}
+  .foot code{font-family:var(--kasa-font-mono);color:var(--kasa-n300)}
+
+  /* ===== Ajan görünümü — Sohbet / Model / İz / Yarış ===== */
+  /* Ortak form kontrolleri (koyu tema; tarayıcı-varsayılanı yerine) */
+  .btn{font-family:var(--kasa-font-ui);font-size:13px;font-weight:500;padding:9px 16px;border-radius:var(--kasa-r-sm);
+    border:1px solid var(--kasa-n700);background:var(--kasa-n800);color:var(--kasa-n100);cursor:pointer;white-space:nowrap;
+    transition:background var(--kasa-t-micro) var(--kasa-ease),border-color var(--kasa-t-micro) var(--kasa-ease)}
+  .btn:hover{border-color:var(--kasa-n500)}
+  .btn:focus-visible{outline:2px solid var(--kasa-accent);outline-offset:2px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.primary{background:var(--kasa-primary);border-color:var(--kasa-primary);color:#fff}
+  .btn.primary:hover{background:var(--kasa-primary-hover);border-color:var(--kasa-primary-hover)}
+  .btn.sm{padding:6px 12px;font-size:12px}
+  .k-input{width:100%;background:var(--kasa-n800);border:1px solid var(--kasa-n700);border-radius:var(--kasa-r-sm);
+    color:var(--kasa-n100);font-family:var(--kasa-font-ui);font-size:13px;padding:10px 12px;line-height:1.5;resize:vertical}
+  .k-input::placeholder{color:var(--kasa-n500)}
+  .k-input:focus{outline:none;border-color:var(--kasa-accent);box-shadow:0 0 0 3px rgba(27,167,194,.15)}
+
+  /* Model seçici — çip listesi */
+  .model-list{display:flex;flex-wrap:wrap;gap:8px}
+  .model-chip{display:inline-flex;align-items:center;gap:8px;background:var(--kasa-n800);border:1px solid var(--kasa-n700);
+    border-radius:999px;padding:6px 8px 6px 13px;font-size:12.5px;color:var(--kasa-n300);cursor:pointer;
+    transition:border-color var(--kasa-t-micro) var(--kasa-ease),color var(--kasa-t-micro) var(--kasa-ease)}
+  .model-chip:hover{border-color:var(--kasa-n500);color:var(--kasa-n100)}
+  .model-chip .st{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--kasa-n500);
+    border:1px solid var(--kasa-n700);border-radius:999px;padding:2px 8px}
+  .model-chip.sel{background:rgba(224,34,68,.12);border-color:var(--kasa-primary);color:var(--kasa-n100)}
+  .model-chip.sel .st{color:#fff;background:var(--kasa-primary);border-color:var(--kasa-primary)}
+
+  /* Sohbet balonları */
+  .chat-log{display:flex;flex-direction:column;gap:14px;max-height:420px;overflow-y:auto;padding:6px 2px}
+  .chat-log:empty::after{content:"Henüz mesaj yok — aşağıdan sor.";color:var(--kasa-n500);font-size:12.5px}
+  .msg{display:flex;flex-direction:column;gap:5px;max-width:84%}
+  .msg.me{align-self:flex-end;align-items:flex-end}
+  .msg.ai{align-self:flex-start;align-items:flex-start}
+  .msg .who{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--kasa-n500);padding:0 3px}
+  .msg .bubble{padding:11px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .msg.me .bubble{background:rgba(27,167,194,.13);border:1px solid rgba(27,167,194,.30);border-bottom-right-radius:5px}
+  .msg.ai .bubble{background:var(--kasa-n800);border:1px solid var(--kasa-n700);border-bottom-left-radius:5px}
+  .msg.ai.err .bubble{background:rgba(229,72,77,.10);border-color:rgba(229,72,77,.35);color:#F0999C}
+  .msg .bubble b{color:#fff;font-weight:600}
+
+  .composer{display:flex;gap:10px;margin-top:14px;align-items:flex-end}
+  .composer .k-input{min-height:46px}
+  .chat-busy{display:flex;align-items:center;gap:9px;color:var(--kasa-n500);font-size:12px;margin-top:11px}
+  .chat-busy .spin{width:12px;height:12px;border:2px solid var(--kasa-n700);border-top-color:var(--kasa-accent);
+    border-radius:50%;animation:kspin .7s linear infinite;flex-shrink:0}
+  @keyframes kspin{to{transform:rotate(360deg)}}
+
+  /* Araç izleri */
+  .trace{display:grid;gap:1px;background:var(--kasa-n800);border-radius:var(--kasa-r-sm);overflow:hidden}
+  .trace .trow{display:flex;align-items:center;gap:10px;background:var(--kasa-n900);padding:9px 13px;font-size:12px}
+  .trace .trow .step{font-family:var(--kasa-font-mono);font-size:11px;color:var(--kasa-n500);flex-shrink:0}
+  .trace .trow .ttype{font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .trace .trow .ttype.tool_call{color:var(--kasa-accent)}
+  .trace .trow .ttype.model_reply{color:var(--kasa-secure)}
+  .trace .trow .ttype.gate_reject{color:var(--kasa-danger)}
+  .trace .trow .ttype.tool_error,.trace .trow .ttype.timeout{color:var(--kasa-warning)}
+  .trace .trow .tool{font-family:var(--kasa-font-mono);font-size:11px;color:var(--kasa-n300)}
+  .trace .trow .td{color:var(--kasa-n500);font-size:11px;margin-left:auto;text-align:right}
+
+  /* Yarış Modu */
+  .race-picks{display:flex;flex-wrap:wrap;gap:8px}
+  .race-pick{display:inline-flex;align-items:center;gap:8px;background:var(--kasa-n800);border:1px solid var(--kasa-n700);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--kasa-n300);cursor:pointer;user-select:none}
+  .race-pick:hover{border-color:var(--kasa-n500);color:var(--kasa-n100)}
+  .race-pick input{accent-color:var(--kasa-primary);width:15px;height:15px;cursor:pointer}
+  .race-results{display:flex;gap:12px;overflow-x:auto;margin-top:14px;padding-bottom:6px}
+  .race-col{min-width:290px;max-width:340px;flex:0 0 auto;background:var(--kasa-n800);border:1px solid var(--kasa-n700);
+    border-radius:var(--kasa-r-md);padding:14px;display:flex;flex-direction:column;gap:8px}
+  .race-col .rc-model{font-size:12.5px;font-weight:600;color:var(--kasa-n100);font-family:var(--kasa-font-mono)}
+  .race-col .rc-reply{font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--kasa-n100)}
+  .race-col .rc-meta{font-size:11px;color:var(--kasa-n500)}
+  .race-col .rc-trace{font-family:var(--kasa-font-mono);font-size:10.5px;color:var(--kasa-n500);line-height:1.5}
+  .race-col .rc-trace .rj{color:var(--kasa-danger)}
+  .race-col.err{border-color:rgba(229,72,77,.35)}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Kasa gezinme">
+    <span class="brand" aria-hidden="true"></span>
+    <button class="active" data-view="dashboard" title="Panono" aria-label="Panono">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+    </button>
+    <button data-view="events" title="Olaylar" aria-label="Olaylar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.4"/><circle cx="3.5" cy="12" r="1.4"/><circle cx="3.5" cy="18" r="1.4"/></svg>
+    </button>
+    <button data-view="profile" title="Profil" aria-label="Profil">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    </button>
+    <button data-view="security" title="Güvenlik Merkezi" aria-label="Güvenlik Merkezi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </button>
+    <button data-view="ajan" title="Ajan" aria-label="Ajan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="14" height="11" rx="2"/><circle cx="9.5" cy="12" r="1"/><circle cx="14.5" cy="12" r="1"/><path d="M12 7V4"/><circle cx="12" cy="3" r="1"/><path d="M9 16h6"/></svg>
+    </button>
+    <button data-view="audit" title="Güvenlik Denetimi" aria-label="Güvenlik Denetimi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </button>
+    <button data-view="settings" title="Ayarlar" aria-label="Ayarlar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="locked" title="Gelişmiş (Kilitli) — owner-gated" aria-label="Gelişmiş, kilitli" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </button>
+  </nav>
+
+  <main class="main">
+    <div class="notice">
+      <b>YEREL</b>
+      <span>Bu pano yalnız <span class="mono">127.0.0.1</span> üzerinde çalışır · read-through-redact · hiçbir vault verisi cihazdan çıkmaz.</span>
+    </div>
+
+    <div class="topbar">
+      <div>
+        <h1 id="page-title">Güvenlik Panosu</h1>
+        <div class="sub">Egemen hafıza · <span id="generated-at">—</span></div>
+      </div>
+      <div class="chips">
+        <span class="chip"><span class="dot secure"></span>Yalnız yerel <span class="mono" style="color:var(--kasa-n500)">127.0.0.1:8000</span></span>
+      </div>
+    </div>
+
+    <div id="status" class="load">Yükleniyor…</div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="view-dashboard" class="view">
+      <div class="kpis" aria-label="Özet metrikler">
+        <div class="kpi"><span class="stripe s-accent"></span>
+          <div class="lbl">Taranan event</div>
+          <div class="val mono" id="kpi-events-total">—</div>
+          <div class="meta" id="kpi-events-meta">damıtılmış / bekleyen</div>
+        </div>
+        <div class="kpi"><span class="stripe s-primary"></span>
+          <div class="lbl">Maskelenmiş sır</div>
+          <div class="val mono" id="kpi-masked">—</div>
+          <div class="meta">saklanan içerikteki [REDACTED]</div>
+        </div>
+        <div class="kpi"><span class="stripe s-warn"></span>
+          <div class="lbl">Maskesiz (legacy)</div>
+          <div class="val mono" id="kpi-live">—</div>
+          <div class="meta">kapı öncesi maskelenebilir token</div>
+        </div>
+        <div class="kpi"><span class="stripe s-secure"></span>
+          <div class="lbl">Audit zinciri</div>
+          <div class="val sm" id="kpi-audit">—</div>
+          <div class="meta"><span class="dot secure" id="kpi-audit-dot"></span><span class="mono" id="kpi-audit-records">—</span> kayıt</div>
+        </div>
+        <div class="kpi"><span class="stripe s-warn"></span>
+          <div class="lbl">At-rest kapsama</div>
+          <div class="val sm" id="kpi-atrest">—</div>
+          <div class="meta" id="kpi-atrest-meta">hücre / tam-DB</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>Son Olaylar <span class="hint">maskeli — ham içerik gösterilmez</span></h2>
+          <div class="body flush" style="overflow-x:auto">
+            <table>
+              <thead><tr><th>ID</th><th>Tür</th><th>Kaynak</th><th>Durum</th></tr></thead>
+              <tbody id="dash-recent-tbody"><tr><td colspan="4" class="empty">Yükleniyor…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Maskelenebilir Token <span class="hint">tür başına (legacy)</span></h2>
+          <div class="body"><div class="bars" id="redaction-bars"><div class="empty">Yükleniyor…</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ EVENTS ============ -->
+    <section id="view-events" class="view" hidden>
+      <div class="panel">
+        <h2>Olay Akışı <span class="hint" id="events-count">maskeli görünüm</span></h2>
+        <div class="body flush" style="overflow-x:auto">
+          <table>
+            <thead><tr><th>ID</th><th>Zaman</th><th>Tür</th><th>Kaynak</th><th>Durum</th></tr></thead>
+            <tbody id="events-tbody"><tr><td colspan="5" class="empty">Yükleniyor…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PROFILE ============ -->
+    <section id="view-profile" class="view" hidden>
+      <div class="panel">
+        <h2>Kalıcı Bellek <span class="hint" id="profile-count">maskeli okuma</span></h2>
+        <div class="body flush" style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Anahtar</th><th>Değer (maskeli)</th><th>Kaynak</th><th>Güncellendi</th></tr></thead>
+            <tbody id="profile-tbody"><tr><td colspan="4" class="empty">Yükleniyor…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SECURITY CENTER ============ -->
+    <section id="view-security" class="view" hidden>
+      <div class="grid">
+        <div class="panel">
+          <h2>Güvenlik Duruşu <span class="hint">dürüst durum</span></h2>
+          <div class="body"><div class="posture" id="posture"><div class="empty">Yükleniyor…</div></div></div>
+        </div>
+        <div class="panel">
+          <h2>Maskelenebilir Token <span class="hint">tür başına (legacy)</span></h2>
+          <div class="body"><div class="bars" id="sec-redaction-bars"><div class="empty">Yükleniyor…</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AJAN (yerel model + araç köprüsü) ============ -->
+    <section id="view-ajan" class="view" hidden>
+      <!-- Model seçici (kompakt bar) -->
+      <div class="panel">
+        <h2>AI Modeli <span class="hint">yerel · seçim köprü beynini belirler</span></h2>
+        <div class="body">
+          <div id="ajan-model-status" class="empty">Yükleniyor…</div>
+          <div id="ajan-model-list" class="model-list"></div>
+        </div>
+      </div>
+
+      <!-- Sohbet (ana etkileşim) -->
+      <div class="panel">
+        <h2>Sohbet <span class="hint">salt-okunur araçlar · maskeli veri · yalnız yerel</span></h2>
+        <div class="body">
+          <div id="ajan-log" class="chat-log"></div>
+          <div id="ajan-busy" class="chat-busy" hidden><span class="spin"></span>Model düşünüyor…</div>
+          <div class="composer">
+            <textarea id="ajan-input" class="k-input" rows="2" placeholder="KASA'na sor… (ör. son olayları özetle) · Ctrl+Enter ile gönder"></textarea>
+            <button id="ajan-send" type="button" class="btn primary">Gönder</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Araç izleri -->
+      <div class="panel">
+        <h2>Araç İzleri <span class="hint">her çağrı + kapı kararı görünür (şeffaflık)</span></h2>
+        <div class="body"><div id="ajan-trace" class="trace"><div class="empty">Henüz iz yok.</div></div></div>
+      </div>
+
+      <!-- Yarış Modu: aynı soruyu 2-4 yerel modele sor, yan yana karşılaştır, birini seç -->
+      <div class="panel">
+        <h2>Yarış Modu <span class="hint">aynı soruyu 2-4 yerel modele sor · yan yana · yalnız yerel</span></h2>
+        <div class="body">
+          <div id="race-models" class="empty">Modeller yükleniyor…</div>
+          <div class="composer">
+            <textarea id="race-input" class="k-input" rows="2" placeholder="Yarıştırılacak soru… (üstten 2-4 model işaretle)"></textarea>
+            <button id="race-run" type="button" class="btn">Yarıştır</button>
+          </div>
+          <div id="race-busy" class="chat-busy" hidden><span class="spin"></span>Modeller yarışıyor… (yerel GPU'da sırayla)</div>
+          <div id="race-results" class="race-results"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SECURITY AUDIT ============ -->
+    <section id="view-audit" class="view" hidden>
+      <div class="panel">
+        <h2>Sistem Denetimi <span class="hint">aktif güvenlik sınırlarını test et</span>
+            <select id="audit-layer-select" class="k-input" style="width: auto; padding: 4px 8px; margin-left: auto; margin-right: 10px;">
+                <option value="all">Tümü (All Layers)</option>
+                <option value="v1">Kasa v1 (Temel Katman)</option>
+                <option value="v2">Kasa v2 (Gelişmiş Zırh)</option>
+            </select>
+            <button id="run-audit-btn" class="btn sm primary">Testleri Başlat</button>
+        </h2>
+        <div class="body">
+          <div id="audit-busy" class="chat-busy" hidden><span class="spin"></span>Testler çalışıyor, simülasyonlar devrede…</div>
+          <div id="audit-results" class="bars" style="margin-top: 10px;">
+            <div class="empty">Testleri başlatmak için yukarıdaki butona tıklayın.</div>
+          </div>
+          <div style="margin-top: 16px; text-align: right;">
+            <button id="download-report-btn" class="btn sm" hidden>Detaylı Diagnostic Raporunu İndir</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view" hidden>
+      <h2>Ayarlar</h2>
+      <p>Vault için bir klasör veya dosya seçin. Seçim sonraki açılışta uygulanır.</p>
+      <button class="btn primary" id="pick-folder-btn">Klasör Seç</button>
+      <button class="btn" id="pick-file-btn">Dosya Bul</button>
+      <p id="settings-selected-path"></p>
+    </section>
+
+    <div class="foot">
+      Tasarım kaynağı: <code>design_system/tokens.css</code> · standart: <code>docs/UI_UX_STANDARD.md</code>.<br>
+      Veri: <code>/v1/dashboard/{stats,events,profile}</code> (aggregate + read-through-redact) · maskesiz görünüm ve anahtar yönetimi owner-gated (v1 dışı).
+    </div>
+  </main>
+</div>
+
+<script>window.KASA_TOKEN = "__KASA_TOKEN__";</script>
+<script src="/dashboard/app.js"></script>
+</body>
+</html>

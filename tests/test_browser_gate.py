@@ -40,7 +40,9 @@ def test_evaluate_leaky_record_detected():
         "http": {"accept_language": "tr-TR,tr;q=0.9"},
         "js": {
             "language": "de-DE",
-            "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5070 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            # Sentetik GPU dizgesi (sahibin gercek kartini yazma): _GPU_MARKERS'a
+            # takilir, known_spoofs'ta DEGILDIR -> "webgl" sizintisi beklenir.
+            "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)",
             "timezone": "Europe/Berlin",
             "tzOffset": -60,
             "platform": "Win32",

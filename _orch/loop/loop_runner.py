@@ -8,10 +8,11 @@ Is panosunu (board.json) okur; her is icin:
      -> .bak al + splice -> test_file + regresyon setini tekrar kos.
      PASS + regresyon bozulmadi -> green, tut. Degilse .bak'tan geri al, sonraki tur.
   3. Tur bitince yesil degilse -> orijinali geri yukle, blocked.
-Her adim journal + jsonl'e yazilir; opsiyonel `sink` (PlanAgent EventBus koprusu) cagirilir.
+Her adim journal + jsonl'e yazilir; opsiyonel `sink` (harici EventBus koprusu) cagirilir.
 Fix kodunu YALNIZ yerel modeller uretir; Claude token harcamaz.
 """
-import os, sys, json, time, subprocess, argparse
+import os
+import sys, json, time, subprocess, argparse
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -19,9 +20,9 @@ sys.path.insert(0, HERE)
 import model_pipe
 import guard
 
-DEFAULT_PY = os.environ.get(
-    "KASA_PY",
-    "C:/Users/REDACTED-USER/AppData/Local/Python/pythoncore-3.14-64/python.exe")
+# Turkce not: sabit yorumlayici yolu sahibin hesap adini siziyordu -> CALISMA-ANI
+# yorumlayicisi kullanilir; KASA_PY ile hala elle gecersiz kilinabilir.
+DEFAULT_PY = os.environ.get("KASA_PY") or sys.executable
 
 
 def _now():
@@ -32,7 +33,7 @@ class LoopRunner:
     def __init__(self, board_path, py_exe=DEFAULT_PY, sink=None, dry_run=False):
         self.board_path = board_path
         self.py_exe = py_exe
-        self.sink = sink              # opsiyonel: callable(record_dict) — PlanAgent koprusu
+        self.sink = sink              # opsiyonel: callable(record_dict) — harici EventBus koprusu
         self.dry_run = dry_run
         with open(board_path, encoding="utf-8") as f:
             self.board = json.load(f)
@@ -68,8 +69,34 @@ class LoopRunner:
             test_files = [test_files]
         cmd = [self.py_exe, "-m", "pytest", "-q", *test_files]
         try:
-            proc = subprocess.run(cmd, cwd=self.repo, capture_output=True, text=True, timeout=600)
-            out = (proc.stdout or "") + (proc.stderr or "")
+            # SEBEP: text=True Windows'ta YEREL kodlamayi kullanir (bu makinede cp1254/Turkce).
+            # pytest ciktisi UTF-8 bayt icerdiginde (Turkce assert mesaji, tik isareti, kod
+            # alintisi) okuma thread'i UnicodeDecodeError atar; subprocess.run bunu YUTAR ve
+            # stdout/stderr'i BOS dondurur. returncode dogru gelir, KANIT kaybolur.
+            # SONUC (fixlenmezse): journal "test gecmedi" der ama NEDEN'i yazmaz -> sifir-token
+            # boru hattinda denetleyicinin tek kaniti yok olur; sessiz olcum kaybi.
+            # OLCULDU 2026-08-01: ASCII test 98 karakter dondu, Turkce iceren test 0.
+            # KARAR: kodlamayi acikca UTF-8'e sabitle, cozulemeyen bayti replace ile koru
+            # (kanit kirpilsa bile ASLA tamamen kaybolmasin).
+            proc = subprocess.run(cmd, cwd=self.repo, capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace", timeout=600)
+            if proc.stdout is None or proc.stderr is None:
+                # `None` ile `""` AYNI SEY DEGILDIR ve bu ayrim burada kaybolmamalidir.
+                # Olculdu (2026-08-02): kodlama cozumlemesi patlarsa subprocess.run cagirana
+                # ISTISNA FIRLATMAZ; donus kodunu DOGRU verir ve ilgili akimi `None` yapar.
+                # Traceback yalnizca EBEVEYNIN stderr'ine basilir, yani sinyal vardir ama
+                # sonucla iliskilendirilmeyen bir kanala duser.
+                # Eski kod `(proc.stdout or "")` yazarak `None`i bos dizeye ceviriyordu ->
+                # "cikti yoktu" ile "ciktiyi okuyamadik" ayni gorunuyordu: kanit kaybinin
+                # ikinci katmani. Artik kayip ACIKCA kanita yazilir.
+                lost = [n for n, v in (("stdout", proc.stdout), ("stderr", proc.stderr))
+                        if v is None]
+                note = ("[KANIT KAYBI] %s okunamadi (kodlama cozumlemesi basarisiz; "
+                        "donus kodu %s). Bu bos cikti DEGIL, OLCULEMEYEN ciktidir.\n"
+                        % (", ".join(lost), proc.returncode))
+            else:
+                note = ""
+            out = note + (proc.stdout or "") + (proc.stderr or "")
             return proc.returncode == 0, out[-4000:]
         except subprocess.TimeoutExpired:
             return False, "pytest TIMEOUT (>600s)"
@@ -144,17 +171,66 @@ class LoopRunner:
             self.emit("fix_iter", id=jid, iter=i, of=max_iters)
             current = guard.read(target)
             spec = job["fix_spec"] + "\n\n=== CURRENT FILE ===\n```python\n" + current + "\n```"
+            # Butce is-basina ayarlanabilir: buyuk hedef dosyalarda 4096 token sessiz kirpma
+            # uretiyordu (bkz. model_pipe.draft_review sebep notu). Varsayilanlar korunur.
+            patch_mode = job.get("mode") == "patch"
+            # "patch": model tam dosya yerine {"old","new"} duzenleme listesi verir ve
+            # uygulamayi guard.apply_edits yapar. Dokunulmayan bayt aynen kalir, yani uzun
+            # Turkce gerekce notlarinin kaybolmasi imkansizlasir; ayrica cikti kucuk oldugu
+            # icin tur suresi dakikalara duser. Varsayilan hala tam-dosya kipidir.
             try:
-                code = model_pipe.draft_review(spec, job.get("checklist", ""),
-                                               on_token=None, num_predict=4096)
+                if patch_mode:
+                    edits = model_pipe.draft_review_patch(
+                        job["fix_spec"], job.get("checklist", ""), current,
+                        num_predict=int(job.get("num_predict", 2048)))
+                    # Satir-arali duzenleme varsayilan; metin-cipali eski bicim de kabul
+                    # edilir (model hangisini uretirse). Ikisi de deterministik uygulanir.
+                    use_lines = any("start" in e for e in (edits or []))
+                    apply_fn = guard.apply_line_edits if use_lines else guard.apply_edits
+                    ok_patch, result = apply_fn(current, edits)
+                    if not ok_patch:
+                        self.emit("patch_reject", id=jid, iter=i, reason=result,
+                                  edit_count=len(edits or []))
+                        continue
+                    code = result
+                    self.emit("patch_built", id=jid, iter=i, edits=len(edits),
+                              delta_chars=len(code) - len(current))
+                else:
+                    code = model_pipe.draft_review(
+                        spec, job.get("checklist", ""), on_token=None,
+                        num_predict=int(job.get("num_predict", 4096)),
+                        max_review_chars=int(job.get("max_review_chars", 13000)))
             except Exception as e:
                 self.emit("fix_model_error", id=jid, iter=i, error=str(e))
                 continue
 
+            # `original=current` + is-basina min_comment_ratio: yapiyi degil BILGIYI de korur
+            # (bkz. guard.check_candidate sebep notu). Parametre yoksa davranis eskisi gibi.
             ok, reason = guard.check_candidate(code, job.get("guard_needles"),
-                                               job.get("forbidden_needles"))
+                                               job.get("forbidden_needles"),
+                                               original=current,
+                                               min_comment_ratio=job.get("min_comment_ratio"))
             if not ok:
-                self.emit("guard_reject", id=jid, iter=i, reason=reason)
+                # SEBEP: reddedilen aday DISCARD ediliyordu -> denetleyici "neden reddedildi"
+                # sorusunu YALNIZ needle adiyla cevaplayabiliyordu. "Model bolumu sildi mi,
+                # yoksa farkli mi yazdi?" ayrimi yapilamiyor; kok-neden model mi guard mi
+                # belirlenemiyor. Sifir-token boru hattinda urunu model yazar, KARARI ben
+                # veririm -> karar icin kanit sart.
+                # SONUC: her red, incelenebilir bir dosya olarak saklanir (uzeri her turda
+                # yazilir degil, is+tur adiyla ayri). Bu bir SINK -> is basina son tur zaten
+                # sinirli (max_iters), ayrica eski isler yeni kosuda uzerine yazilir.
+                rej = ""
+                try:
+                    rej_dir = os.path.join(self.out_dir, "rejected")
+                    os.makedirs(rej_dir, exist_ok=True)
+                    rej = os.path.join(rej_dir, f"{jid}_iter{i}.py")
+                    with open(rej, "w", encoding="utf-8") as f:
+                        f.write(code)
+                except OSError:
+                    rej = ""
+                self.emit("guard_reject", id=jid, iter=i, reason=reason,
+                          candidate=os.path.basename(rej) if rej else None,
+                          candidate_chars=len(code))
                 continue
 
             bak = guard.backup(target)
@@ -179,8 +255,24 @@ class LoopRunner:
                 self.emit("job_green", id=jid, edited=True, iter=i, backup=os.path.basename(bak))
                 return {"id": jid, "outcome": "green", "iters": i, "edited": True}
             # regresyon/hedef bozuk -> geri al
+            # SEBEP: guard'i GECIP testte dusen aday, restore ile YOK OLUYORDU. guard_reject
+            # dallarinda kanit sakliyorduk ama burada saklamiyorduk -> "model ne uretti"
+            # sorusu cevapsiz kaldi ve kok-neden (model mi, test mi, spec mi) ayrilamadi.
+            # OLCULDU 2026-08-02: iki tur ust uste ayni test kirildi; kirilan sey TESTIN
+            # KENDISIYDI (fikstur uc alete de ayni govdeyi veriyordu), ama bunu ancak
+            # dosyayi elle okuyarak anlayabildik — aday saklansa dogrudan gorulurdu.
+            # SONUC: guard-reddi gibi, rollback adayi da incelenebilir kalir.
+            try:
+                rej_dir = os.path.join(self.out_dir, "rejected")
+                os.makedirs(rej_dir, exist_ok=True)
+                with open(os.path.join(rej_dir, f"{jid}_iter{i}_ROLLBACK.py"), "w",
+                          encoding="utf-8") as f:
+                    f.write(code)
+            except OSError:
+                pass
             guard.restore(target, bak)
-            self.emit("rollback", id=jid, iter=i, note="test gecmedi, .bak geri yuklendi")
+            self.emit("rollback", id=jid, iter=i, note="test gecmedi, .bak geri yuklendi",
+                      failing_tail=out2[-400:])
 
         job["status"] = "blocked"
         self.emit("job_blocked", id=jid, reason=f"{max_iters} tur sonunda yesil degil (orijinal korundu)")

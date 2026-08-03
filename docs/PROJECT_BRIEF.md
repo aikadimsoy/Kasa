@@ -99,7 +99,7 @@ Five components; only the first two exist in MVP-0.
 | Helper app | **Python + PyQt6** system-tray application | Owner has shipped a ~9-iteration PyQt6 desktop app previously; PoC velocity outweighs Rust/Tauri elegance at this stage. Revisit for production. |
 | Vault storage | **SQLite + SQLCipher** (full-file encryption) | Battle-tested, zero-server, portable single file. |
 | Key management | **Windows DPAPI** (`CryptProtectData`), key bound to the user account | No invented passwords; the Windows session unlocks the vault. Optional Windows Hello / TPM upgrade in a later phase. |
-| Local model | **Ollama** running `qwen2.5:7b` (already installed in owner's stack) | Nightly distillation batch + future summarization; comfortable load for an RTX 5070 / 32 GB machine. |
+| Local model | **Ollama** running `qwen2.5:7b` (already installed in owner's stack) | Nightly distillation batch + future summarization; comfortable load for a mid-range consumer GPU workstation. |
 | MCP server | **Python MCP SDK**, localhost only | First customers: the owner's own Claude installation and the KisiselAsistan system — self-dogfooding from day one. |
 | Extension bridge (deferred) | Chrome **MV3 Native Messaging**; host manifest registered under `HKCU\Software\Google\Chrome\NativeMessagingHosts`, stdio transport | The Windows-concrete realization of Invariant 1. Architecture reserves the seam now; no code in MVP-0. |
 | Audit log | **Append-only JSONL**, each line carrying the SHA-256 of the previous line (hash chain) | Dependency-free tamper evidence; the user can ask "what did you do yesterday?" and replay it. |

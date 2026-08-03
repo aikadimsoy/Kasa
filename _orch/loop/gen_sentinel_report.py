@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
 """
 gen_sentinel_report.py — SIFIR-TOKEN orkestrasyon (yalnizca boru hatti; RAPOR-ONLY).
-deepseek taslak -> qwen inceleme -> C:\\Users\\REDACTED-USER\\Desktop\\KASA_sentinel_karsilastirma_2026-07-09.md
+deepseek taslak -> qwen inceleme -> <ev-dizini>/Desktop/KASA_sentinel_karsilastirma_2026-07-09.md
 Prose YEREL modellerden gelir; bu dosya icerik uretmez, SPEC'i tasir ve ciktiyi yazar.
 Kanit: Controller/opus WebFetch ciktilari (MarketNow/Sentinel) — SPEC'e gomulu, modeller disina cikamaz.
 Calistirma:
   python gen_sentinel_report.py                (tam tur: deepseek + qwen)
   python gen_sentinel_report.py --review-only  (mevcut raporu qwen'e yeniden incelet)
 """
-import sys, re, time
+import os, sys, re, time
 
-sys.path.insert(0, r"d:\kasa\_orch\loop")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from model_pipe import call_model, DRAFTER, REVIEWER, ollama_up
 
-OUT = r"C:\Users\REDACTED-USER\Desktop\KASA_sentinel_karsilastirma_2026-07-09.md"
+# Turkce not: cikti sabit bir kullanici Masaustune yaziliyordu (hesap adi sizinti);
+# artik ev dizininden turetilir, KASA_REPORT_OUT ile degistirilebilir.
+OUT = os.environ.get("KASA_REPORT_OUT") or os.path.join(
+    os.path.expanduser("~"), "Desktop", "KASA_sentinel_karsilastirma_2026-07-09.md")
 
 # ---------------------------------------------------------------------------
 # SPEC — faktuel iskelet (sef tarafindan verilen KANIT; modeller bunun disina cikamaz)

@@ -147,7 +147,7 @@ _TOOLBAR_JS = r"""
     ].join(';');
 
     // Adres cubugu: pill (r=9999), yukseklik 36px (4.5x8), KasaMono font
-    // NOT: inline onclick/onkeydown KULLANMA — siki CSP'li siteler (THY vb.) bunlari bloklar.
+    // NOT: inline onclick/onkeydown KULLANMA — siki CSP'li siteler bunlari bloklar.
     // Tum olaylar asagida addEventListener ile baglanir (izole context, CSP'den etkilenmez).
     bar.innerHTML =
         '<button id="_kb_back" style="' + btnStyle + '" title="Geri">' + SVG_BACK + '</button>' +
@@ -359,7 +359,9 @@ _PRIVACY_JS = r"""
     webglProto.getParameter = function(pname) {
       const GL_VENDOR   = 0x1F00;
       const GL_RENDERER = 0x1F01;
-      if (pname === GL_RENDERER || pname === GL_VENDOR) {
+      const UNMASKED_VENDOR_WEBGL   = 0x9245;
+      const UNMASKED_RENDERER_WEBGL = 0x9246;
+      if (pname === GL_RENDERER || pname === GL_VENDOR || pname === UNMASKED_RENDERER_WEBGL || pname === UNMASKED_VENDOR_WEBGL) {
         const renderers = [
           "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
           "ANGLE (AMD, Radeon RX 580 Series Direct3D11 vs_5_0 ps_5_0, D3D11)",
@@ -367,8 +369,8 @@ _PRIVACY_JS = r"""
         ];
         const vendors = ["Google Inc. (Intel)", "Google Inc. (AMD)", "Google Inc. (NVIDIA)"];
         const idx = parseInt(sessionStorage.getItem('_kp_webgl_idx')) || 0;
-        if (pname === GL_RENDERER) return renderers[idx];
-        if (pname === GL_VENDOR)   return vendors[idx];
+        if (pname === GL_RENDERER || pname === UNMASKED_RENDERER_WEBGL) return renderers[idx];
+        if (pname === GL_VENDOR || pname === UNMASKED_VENDOR_WEBGL)   return vendors[idx];
       }
       return originalGetParameter.apply(this, arguments);
     };
@@ -380,7 +382,9 @@ _PRIVACY_JS = r"""
       webgl2Proto.getParameter = function(pname) {
         const GL_VENDOR   = 0x1F00;
         const GL_RENDERER = 0x1F01;
-        if (pname === GL_RENDERER || pname === GL_VENDOR) {
+        const UNMASKED_VENDOR_WEBGL   = 0x9245;
+        const UNMASKED_RENDERER_WEBGL = 0x9246;
+        if (pname === GL_RENDERER || pname === GL_VENDOR || pname === UNMASKED_RENDERER_WEBGL || pname === UNMASKED_VENDOR_WEBGL) {
           const renderers = [
             "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
             "ANGLE (AMD, Radeon RX 580 Series Direct3D11 vs_5_0 ps_5_0, D3D11)",
@@ -388,8 +392,8 @@ _PRIVACY_JS = r"""
           ];
           const vendors = ["Google Inc. (Intel)", "Google Inc. (AMD)", "Google Inc. (NVIDIA)"];
           const idx = parseInt(sessionStorage.getItem('_kp_webgl_idx')) || 0;
-          if (pname === GL_RENDERER) return renderers[idx];
-          if (pname === GL_VENDOR)   return vendors[idx];
+          if (pname === GL_RENDERER || pname === UNMASKED_RENDERER_WEBGL) return renderers[idx];
+          if (pname === GL_VENDOR || pname === UNMASKED_VENDOR_WEBGL)   return vendors[idx];
         }
         return originalGetParameter2.apply(this, arguments);
       };
@@ -1189,10 +1193,19 @@ class KasaApi:
             with open(_BROWSER_CONFIG_PATH, "w", encoding="utf-8") as file:
                 json.dump(cfg, file)
             print("[KASA] agent modeli kaydedildi:", name)
-            return name
         except Exception as e:
             print("[KASA] set_model hata:", str(e))
             return self.get_model()
+        # SEBEP: bu panel eskiden YALNIZ browser_config.json'a yaziyordu; sohbet ajani ise
+        # agent_config.json okuyordu -> kullanicinin UI'dan yaptigi secim ajanda sessizce
+        # ETKISIZ kaliyordu. SONUC: secim yetkili depoya da yansitilir, ikisi ayrisamaz.
+        # Best-effort: yetkili depo yazilamazsa panel yine calisir (cozucu browser_config'e duser).
+        try:
+            from ..agent.store import set_selected_model  # gec import: tarayici exe'de yok
+            set_selected_model(str(name))
+        except Exception as e:
+            print("[KASA] set_model: yetkili depoya yansitilamadi:", str(e))
+        return name
 
     # Gelismis (Kilitli) kademe — owner sifresiyle korunur. Sifre PBKDF2-SHA256 hash olarak
     # browser_config.json'da tutulur (asla duz metin); acilis oturumluk (self._adv_unlocked).

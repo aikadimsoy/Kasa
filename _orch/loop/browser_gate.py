@@ -112,7 +112,13 @@ def _detect_leaks(rec):
     leaks = []
 
     renderer = (js.get("webglRenderer") or "").lower()
-    if any(m in renderer for m in _GPU_MARKERS):
+    # KASA'nin kasten urettigi sahte GPU'lari leak sayma
+    known_spoofs = [
+        "intel(r) uhd graphics 620",
+        "radeon rx 580",
+        "geforce gtx 1660"
+    ]
+    if any(m in renderer for m in _GPU_MARKERS) and not any(s in renderer for s in known_spoofs):
         leaks.append("webgl")
 
     http_lang = (http.get("accept_language", "") or "").split(",")[0].strip().lower()

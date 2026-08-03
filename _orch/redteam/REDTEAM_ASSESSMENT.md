@@ -13,7 +13,12 @@ This report summarizes the findings from a red-team assessment conducted on the 
 
 ## Browser Identity Leaks
 
-The two-pass experiment was conducted to test the effectiveness of the WebView2 browser's anti-fingerprinting capabilities. In PASS 1, before pre-injection applied, real identity details such as locale (tr), resolution (3440x1440), cores/memory (16/32), and GPU ("NVIDIA RTX 5070") were leaked. In PASS 2, after pre-injection was active, some values like canvas hash and WebRTC changed, but the GPU and timezone remained unchanged, indicating persistent identity leaks.
+The two-pass experiment was conducted to test the effectiveness of the WebView2 browser's anti-fingerprinting capabilities. In PASS 1, before pre-injection applied, real identity details — locale, screen resolution (ultrawide), CPU cores / RAM, and the discrete GPU model — were leaked. In PASS 2, after pre-injection was active, some values like canvas hash and WebRTC changed, but the GPU and timezone remained unchanged, indicating persistent identity leaks.
+
+> **[Redaction 2026-08-03]** The owner's real fingerprint literals (exact resolution, core/RAM
+> counts, GPU model, canvas hash, timezone) are masked before publication: together they formed a
+> unique device identifier. Which attributes leaked — and the severity of the finding — are
+> unchanged. Originals remain in the owner's local archive (`_private_archive/`, never published).
 
 ## MCP Server Authorization Flaws
 

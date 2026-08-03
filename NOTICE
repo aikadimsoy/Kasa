@@ -1,0 +1,79 @@
+KASA - Sovereign, Local-First Memory Vault
+Copyright (c) 2026 Erhan (KASA project)
+
+This program is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details.
+
+The full license text is in the file LICENSE at the repository root.
+A commercial license is available as an alternative to the AGPL; see COMMERCIAL.md.
+
+Attribution to the original author is retained under every license track.
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+KASA depends on third-party software that is NOT covered by the license above.
+Each component remains under its own license and is the property of its own
+authors.  A commercial license for KASA grants no rights in these components.
+
+Declared in requirements.txt.  The license identifiers below were read from
+installed distribution metadata on the author's machine.  The versions shown are
+only the versions that happened to be checked -- they are not pinned
+requirements, and they do not all come from one environment: mcp was read from
+the Python 3.12 install, the rest from Python 3.14.  The packaging script builds
+with Python 3.12 (build_kasa.ps1, lines 30 and 59), where some versions differ.
+The license identifiers were the same in both environments; only versions moved.
+
+  fastapi       0.138.0   MIT
+  uvicorn       0.48.0    BSD-3-Clause
+  pydantic      2.13.4    MIT
+  PyQt5         5.15.11   GPL v3
+  cryptography  49.0.0    Apache-2.0 OR BSD-3-Clause
+  mcp           1.28.1    MIT
+
+Note on PyQt5: its metadata declares GPL v3, and its licensor offers a separate
+commercial track.  Inside src/ it is imported only by the system-tray helper
+(src/tray/app.py); the desktop UI runs on pywebview over WebView2, not Qt.  The
+packaging script excludes Qt from the build (build_kasa.ps1, line 62) and does
+not package src.tray, so an executable produced by that script does not ship
+PyQt5.  Anyone packaging KASA differently, or planning a closed-source product,
+must resolve that component's licensing independently -- see COMMERCIAL.md
+section 8.
+
+Note on mcp: used only by the src/mcp_adapter stdio process (its sole import in
+src/ is src/mcp_adapter/__main__.py, line 35).  It is not bundled into the
+packaged executable: the build script's package list does not include
+src.mcp_adapter (build_kasa.ps1, lines 70-75), which matches the declaration in
+requirements.txt, line 6.
+
+Verify the license of every dependency against the version you actually install.
+The list above is a snapshot, not a guarantee.
+
+At runtime on Windows, KASA may additionally require Microsoft WebView2 Runtime
+and the Visual C++ Redistributable.  These are Microsoft components under
+Microsoft's own terms and are not distributed with KASA (see TERMS_OF_USE.md).
+
+
+This file is not legal advice.
+
+
+-- Turkce not (ogretici) --
+Bu dosya bir "telif ve bildirim" dosyasidir; kod icermez, ama depo yasal olarak
+kendini tanitir. Uc isi yapar:
+1) Telif sahibini ve yili yazar (Erhan, 2026) -- attribution her lisans yolunda kalir.
+2) Varsayilan lisansin AGPL-3.0 oldugunu soyler ve tam metin icin LICENSE dosyasina,
+   ticari secenek icin COMMERCIAL.md dosyasina yonlendirir.
+3) Ucuncu-taraf bilesenleri listeler. Buradaki lisans adlari uydurulmadi; kurulu
+   paketlerin kendi dist-info meta verisinden okundu ve surumleri yazildi.
+PyQt5 satirina dikkat: GPL v3'tur, yani KASA'nin ticari lisansi onu kapsamaz.
+Ama kapsami abartmamak lazim: PyQt5'i src/ icinde yalniz sistem tepsisi kullanir,
+masaustu arayuzu Qt degil pywebview/WebView2'dir ve build betigi Qt'yi zaten
+disarida birakir. Yine de baska turlu paketleyen biri o bilesenin lisansini
+ayrica cozmek zorundadir.
+Bu dosya .md degil duz metin oldugu icin Turkce not ASCII ile yazildi (Windows
+konsolu cp1254; ozel karakterler cokme uretebiliyor).

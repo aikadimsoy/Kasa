@@ -14,7 +14,7 @@ from model_pipe import call_model, extract_python, DRAFTER, REVIEWER  # noqa: E4
 CAPTURE_SCRIPT = os.path.join(HERE, "run_eff_capture.py")
 OUT = os.path.join(HERE, "eff_capture.txt")
 REPORT = os.path.join(HERE, "EFF_REPORT.md")
-PY = "C:/Users/REDACTED-USER/AppData/Local/Python/pythoncore-3.14-64/python.exe"
+PY = os.environ.get("KASA_PY") or sys.executable  # sabit yol yerine calisma-ani yorumlayici
 
 
 def run_capture():

@@ -100,10 +100,28 @@ def main() -> int:
         with open(os.path.join(docs, "security_bench_result.json"), "w", encoding="utf-8") as json_file:
             json_file.write(js)
         
-        summary = f"SECURITY BENCHMARK: {'FAIL' if any(r['status'] == 'FAIL' and r['severity'] in ('critical', 'high') for r in results) else 'PASS'} - {len([r for r in results if r['status'] != 'PASS'])} issues found. Report saved at docs/SECURITY_BENCHMARK.md and docs/security_bench_result.json"
+        blocking = [r for r in results
+                    if r['status'] == 'FAIL' and r['severity'] in ('critical', 'high')]
+        unmeasured = [r for r in results
+                      if r['status'] == 'ERROR' and r['severity'] in ('critical', 'high')]
+        # Cikis kodu UC durumu ayirir; ikisine indirgemek iki ayri yalandan birini uretir:
+        #   0 dersek  -> "olcemedik"i "temiz" gibi gosteririz  (sahte yesil; otomasyon gecer)
+        #   1 dersek  -> "olcemedik"i "acik bulduk" gibi gosteririz (sahte kirmizi; kurt masali)
+        # Ikisi de yanlis. Ayri bir kod, otomasyonun "delik var" ile "bakamadik"i ayirt
+        # etmesini saglar -- rapor metnindeki ayrimin makine tarafindaki karsiligidir.
+        #   0 = temiz | 1 = gercek bulgu | 2 = beklenmedik hata | 3 = kapsam eksik
+        issues = len([r for r in results if r['status'] != 'PASS'])
+        state = ('FAIL' if blocking else 'UNVERIFIED' if unmeasured else 'PASS')
+        summary = (f"SECURITY BENCHMARK: {state} - {issues} issues found."
+                   + (f" NOT MEASURED: {', '.join(r['id'] for r in unmeasured)}." if unmeasured else "")
+                   + " Report saved at docs/SECURITY_BENCHMARK.md and docs/security_bench_result.json")
         print(summary)
-        
-        return 1 if any(r['status'] == 'FAIL' and r['severity'] in ('critical', 'high') for r in results) else 0
+
+        if blocking:
+            return 1
+        if unmeasured:
+            return 3
+        return 0
     except Exception as e:
         print(f"Unexpected error: {e}")
         return 2

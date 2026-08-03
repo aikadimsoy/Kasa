@@ -163,7 +163,7 @@ if ok:
     print(f"  Cikti: {out_path}")
     print(f"\nCalistirmak icin:")
     print(f'  $env:KASA_BEARER_TOKEN = (Get-Content d:/kasa/kasa.toml | Select-String "bearer_token").ToString().Split(\'"\')[1]')
-    print(f'  & "C:/Users/REDACTED-USER/AppData/Local/Python/bin/python.exe" -c "from src.browser.browser_window import open_browser; open_browser()"')
+    print(f'  & "%KASA_PY%" -c "from src.browser.browser_window import open_browser; open_browser()"')
 else:
     print("[ORCH] Syntax hatasi - elle duzeltme gerekiyor")
     sys.exit(1)

@@ -115,12 +115,44 @@ def load_config(config_path: Path = None) -> dict:
     return _deep_merge(DEFAULT_CONFIG, loaded)
 
 
+_DPAPI_PREFIX = "dpapi:"
+# Bu onekli bearer_token degeri DPAPI ile korunmus (base64) demektir; oneksiz = legacy duz metin.
+
+
+def _protect_token_value(token: str) -> str | None:
+    """Token'i DPAPI ile koruyup TOML'da saklanabilir dizeye cevirir; olmazsa None.
+    DPAPI yalniz Windows'ta gercek korur (encryption.protect_data Windows-disi gecislidir);
+    basarisizsa cagiran taraf duz metne duser (gelistirme/Windows-disi ortam)."""
+    try:
+        import base64
+        from .vault import encryption
+        blob = encryption.protect_data(token.encode("utf-8"))
+        return _DPAPI_PREFIX + base64.b64encode(blob).decode("ascii")
+    except Exception:
+        return None
+
+
 def get_or_create_bearer_token(config: dict, config_path: Path) -> str:
-    token = config.get("server", {}).get("bearer_token", "")
-    if not token:
-        token = secrets.token_urlsafe(32)
-        config["server"]["bearer_token"] = token
-        _write_toml(config, config_path)
+    """Bearer token'i dondurur; YENI token uretilirse DPAPI-korumali saklanir (duz metin
+    diske yazilmasin). Legacy duz-metin token geriye-uyum icin oldugu gibi okunur ve config
+    SESSIZCE degistirilmez (sahibin izlenen kasa.toml'unu surpriz mutasyonla bozmayalim)."""
+    stored = config.get("server", {}).get("bearer_token", "")
+    if stored.startswith(_DPAPI_PREFIX):
+        # DPAPI-korumali saklanmis: coz ve duz token'i dondur.
+        try:
+            import base64
+            from .vault import encryption
+            return encryption.unprotect_data(base64.b64decode(stored[len(_DPAPI_PREFIX):])).decode("utf-8")
+        except Exception:
+            stored = ""  # cozulemez (baska kullanici/makine/bozuk) -> asagida yeniden uret
+    if stored:
+        # Legacy DUZ METIN token: dokunma, oldugu gibi kullan (config'i mutasyona ugratma).
+        return stored
+    token = secrets.token_urlsafe(32)
+    # Mumkunse DPAPI-korumali sakla; degilse (Windows-disi) duz metne dus.
+    protected = _protect_token_value(token)
+    config["server"]["bearer_token"] = protected if protected else token
+    _write_toml(config, config_path)
     return token
 
 

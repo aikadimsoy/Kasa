@@ -3,3 +3,5 @@ uvicorn>=0.23.0
 pydantic>=2.0.0
 PyQt5>=5.15.0
 cryptography>=42.0.0
+# mcp: YALNIZ src/mcp_adapter stdio sureci icin (MIT lisans); exe'ye paketlenmez.
+mcp>=1.2

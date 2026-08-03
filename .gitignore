@@ -29,3 +29,50 @@ _orch/**/tasks/
 *.bak
 *.bak.*
 *.bak_*
+
+# Nuitka/EXE derleme ciktilari — binary, KAYNAK DEGIL. Platforma bagli, repoyu MB'larca
+# sisirir, diff kirletir. Kaynaktan yeniden uretilir (build_kasa.ps1). Git yalniz kodu izler.
+build_nuitka*/
+
+# Buyuk binary egitim/veri yedegi — kaynak degil (kod izlenir, veri izlenmez).
+_bak_archive/*.db
+
+# Kosum stdout/stderr dokumleri — gecici hata ayiklama ciktilari, kaynak degil.
+err_l.txt
+out_l.txt
+
+# _orch orkestrasyon RUNTIME ciktilari — uretilen log/veri/durum/ara-urun, KAYNAK DEGIL.
+# Kod olan .py araclar (redteam, training, loop) izlenmeye DEVAM eder; yalniz bu araclarin
+# urettigi log/veri/taslak haric tutulur (diff kirliligi + calisma-ani gurultusu).
+_orch/**/logs/
+_orch/redteam/*.jsonl
+_orch/**/state.json
+_orch/loop/board.json
+_orch/qwen_review/
+_orch/**/*_draft.txt
+_orch/**/*_review.txt
+
+# Otomatik MCP tarama raporu (mcp-audit 100/100) — YANILTICI (gercek F-IMP bulgularini gormez);
+# public repoda erken-muhur olur. Disk-te kalir. Karar degisirse bu satiri sil + git add.
+KASA_Security_Audit_Report.pdf
+
+# --- PUBLIC YAYIN HIJYENI (2026-08-03): sahibe ait GERCEK sir/kimlik verisi ---
+# Bu dosyalar YEREL calisma-ani durumudur, kaynak degildir; icinde sahibin gercek
+# dogrulayicilari/parmak izi bulunur. Diskte KALIRLAR (silinirse uygulama/vault bozulur),
+# yalniz git izlemez. Sablonu isteyen browser_config.json.example'a bakar.
+browser_config.json
+_orch/redteam/ai_test_auth.json
+_orch/redteam/captures_firstrun.jsonl
+*.pid
+
+# Redaksiyon arsivi — public yayin oncesi ANONIMLESTIRILEN dosyalarin ORIJINALLERI +
+# neden-gunlugu + git bundle yedegi. Sahibin kendi kaydi; ASLA yayinlanmaz.
+_private_archive/
+
+# Ic oturum notlari — makine envanteri/taslak; public repoya deger katmaz, diskte kalir.
+_orch/SESSION_NOTLARI.md
+docs/VSCODE_EKLENTI_FIZIBILITE.md
+
+# Eski kod anlik goruntuleri (browser_window.py kopyalari vb.) — kaynak degil, public
+# repoda gurultu. Diskte kalir; git izlemez.
+_bak_archive/

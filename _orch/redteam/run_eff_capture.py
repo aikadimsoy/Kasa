@@ -15,7 +15,7 @@ env["KASA_HEALTHCHECK_MS"] = "30000"  # test otomatik calisip /results'a yonlenm
 env["KASA_CAPTURE_OUT"] = OUT
 env["PYTHONPATH"] = REPO
 
-py = "C:/Users/REDACTED-USER/AppData/Local/Python/pythoncore-3.14-64/python.exe"
+py = os.environ.get("KASA_PY") or sys.executable  # sabit yol yerine calisma-ani yorumlayici
 code = "import sys; sys.path.insert(0, r'%s\\src\\browser'); import browser_window; browser_window.open_browser()" % REPO
 subprocess.run([py, "-c", code], env=env, cwd=REPO, timeout=60)
 

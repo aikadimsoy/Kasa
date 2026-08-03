@@ -31,25 +31,30 @@ Scope: authorized defensive security evaluation. Two targets: (1) MCP vault serv
 == TRACK B — Browser identity leak (external adversary fingerprint site) ==
 Method: a local "malicious" site captured how the browser looks from OUTSIDE, over TWO page loads.
 Browser was in PARANOID privacy level (spoofing fully enabled). Key comparison:
+  NOTE (redaction 2026-08-03): the owner's REAL fingerprint values are replaced by <PLACEHOLDER>
+  tokens before publication — they formed a unique device id. Which values leaked, and the four
+  gaps below, are unchanged; only the identifying literals are masked. Originals stay in the
+  owner's local archive (_private_archive/, never published).
   PASS 1 (first page of a session, BEFORE pre-injection applies — race):
-    language=tr, languages=[tr], screen=3440x1440, hwConcurrency=16, deviceMemory=32,
-    webglRenderer="NVIDIA RTX 5070", timezone=Europe/Berlin, canvasHash=2475da68,
+    language=<REAL-LOCALE>, languages=[<REAL-LOCALE>], screen=<REAL-RESOLUTION>,
+    hwConcurrency=<REAL-CORES>, deviceMemory=<REAL-RAM>,
+    webglRenderer="<REAL-GPU-MODEL>", timezone=<REAL-TIMEZONE>, canvasHash=<REAL-CANVAS-HASH>,
     webrtc=2x "typ host" (mDNS .local).  => 100% REAL identity leaked.
   PASS 2 (second navigation, pre-injection active):
     language=de-DE, languages=[de-DE,de,en-US,en], screen=1920x1080, hwConcurrency=8,
-    deviceMemory=4, canvasHash=4830c5c8 (CHANGED => canvas poison works), webrtc=[] (filter works),
-    BUT webglRenderer STILL "NVIDIA RTX 5070", timezone still Europe/Berlin with tzOffset=-60.
-  On BOTH passes: HTTP Accept-Language header = "tr"; sec-ch-ua reveals "Microsoft Edge WebView2".
+    deviceMemory=4, canvasHash=<SPOOFED-HASH> (CHANGED => canvas poison works), webrtc=[] (filter works),
+    BUT webglRenderer STILL "<REAL-GPU-MODEL>", timezone still <REAL-TIMEZONE> with tzOffset=-60.
+  On BOTH passes: HTTP Accept-Language header = "<REAL-LOCALE>"; sec-ch-ua reveals "Microsoft Edge WebView2".
 FOUR CONFIRMED GAPS:
   B1 [CRITICAL] First-load race: the FIRST page a session visits gets NO spoofing (pre-injection
      registers only after the first 'loaded' event). A fingerprinter reading on first paint gets the
-     real locale (tr), real ultrawide resolution (3440x1440), real cores/mem, real GPU.
-  B2 [HIGH] WebGL/GPU poison never effective: real "NVIDIA RTX 5070" leaks even on pass 2. Stable,
+     real locale, real (ultrawide) resolution, real cores/mem, real GPU.
+  B2 [HIGH] WebGL/GPU poison never effective: the real GPU model leaks even on pass 2. Stable,
      highly-identifying hardware fingerprint.
-  B3 [HIGH] HTTP Accept-Language always leaks real "tr" while JS navigator.language says de-DE ->
+  B3 [HIGH] HTTP Accept-Language always leaks the real locale while JS navigator.language says de-DE ->
      cross-layer inconsistency AND real-locale disclosure. JS injection cannot rewrite HTTP headers.
      (This is the previously-known #1 de-DE gap, now proven live.)
-  B4 [MEDIUM] Timezone inconsistency: Intl timezone = Europe/Berlin (July => DST => should be -120)
+  B4 [MEDIUM] Timezone inconsistency: Intl timezone = real zone (July => DST => should be -120)
      but Date.getTimezoneOffset() forced to -60. Intl and Date disagree => spoof detectable.
   Plus: sec-ch-ua outs the client as "Microsoft Edge WebView2" (tiny anonymity set).
 

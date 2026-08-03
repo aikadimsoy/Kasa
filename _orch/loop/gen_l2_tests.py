@@ -5,15 +5,19 @@ SIFIR-TOKEN: deepseek taslak -> qwen inceleme -> pytest; FAIL ise pytest ciktisi
 qwen fix turu (en fazla 3). Claude yalniz bu pipeline'i surer, test kodu yazmaz.
 Kullanim: python d:/kasa/_orch/loop/gen_l2_tests.py
 """
-import os, sys, time, subprocess
+import os
+import sys, sys, time, subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from model_pipe import call_model, extract_python, ollama_up, DRAFTER, REVIEWER
 
-KASA = "d:/kasa"
+# Turkce not: depo koku dosya konumundan turetilir (sabit "d:/kasa" tasinabilir degildi).
+KASA = os.environ.get("KASA_ROOT") or os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(KASA, "tests", "test_l2_at_rest.py")
-REF_PATH = (r"C:\Users\REDACTED-USER\AppData\Local\Temp\claude\C--Users-REDACTED-USER"
-            r"\0e97cc2d-e120-40ee-8bae-232c1302f44c\scratchpad\l2_integration.py")
+# Turkce not: referans, URETIM aninda kullanilan GECICI bir calisma dosyasiydi; sabit yol
+# hem tasinabilir degildi hem oturum kimligi siziyordu -> disaridan KASA_L2_REF ile verilir.
+REF_PATH = os.environ.get("KASA_L2_REF", "")
 MAX_FIX_ROUNDS = 3
 
 with open(REF_PATH, encoding="utf-8") as f:

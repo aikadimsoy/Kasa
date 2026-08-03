@@ -50,7 +50,15 @@ def run():
         try:
             # Controller: .bak yedekleri src/ disina tasindi (_bak_archive) -> exclude'a gerek yok, gercek src taranir.
             cmd = [sys.executable, "-m", "bandit", "-r", "src", "-f", "json"]
-            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True, timeout=300)
+            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True,
+                                     encoding="utf-8", errors="replace", timeout=300)
+            # encoding="utf-8": text=True, alt surecin ciktisini metne cevirirken Windows'ta
+            # YEREL kod sayfasini kullanir (bu makinede cp1254 / Turkce). Cikti UTF-8 bayt
+            # icerdiginde cozumleme UnicodeDecodeError verir, subprocess.run bu istisnayi
+            # okuma thread'inde YUTAR ve stdout'u BOS dondurur -- donus kodu dogru gelir ama
+            # kanit yok olur. errors="replace": cozulemeyen bayti "?" ile degistirir, yani
+            # kanit kirpilabilir ama ASLA tamamen kaybolmaz. Olculdu (2026-08-01): ayni
+            # cagri deseni saf-ASCII ciktida 98 karakter, Turkce iceren ciktida 0 dondurdu.
             data = process.stdout
             try:
                 results_data = json.loads(data)
@@ -81,7 +89,10 @@ def run():
                     "id": "SCAN-BANDIT",
                     "category": "scan",
                     "title": "Static Analysis with Bandit",
-                    "status": "FAIL",
+                    "status": "ERROR",
+                    # "ERROR" = "olcum yapilamadi", "FAIL" = "olculdu ve sorun bulundu".
+                    # Ciktisi ayristirilamayan bir arac HICBIR SEY olcmemistir; bunu FAIL
+                    # saymak, bulunmamis bir bulguyu raporlamak olur.
                     "severity": "high",
                     "evidence": f"Failed to parse output: {data[:200]}",
                     "remediation": "pip install bandit; review src findings"
@@ -92,7 +103,8 @@ def run():
                 "id": "SCAN-BANDIT",
                 "category": "scan",
                 "title": "Static Analysis with Bandit",
-                "status": "FAIL",
+                "status": "ERROR",
+                # Zaman asimina ugrayan tarama da hicbir sey olcmemistir -> ERROR.
                 "severity": "high",
                 "evidence": "Scan timed out.",
                 "remediation": "pip install bandit; review src findings"
@@ -125,7 +137,11 @@ def run():
     else:
         try:
             cmd = [sys.executable, "-m", "pip_audit", "-r", "requirements.txt", "-f", "json"]
-            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True, timeout=300)
+            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True,
+                                     encoding="utf-8", errors="replace", timeout=300)
+            # Kodlama neden acikca sabitleniyor: bkz. yukaridaki bandit cagrisinin notu.
+            # Ozetle text=True yerel kod sayfasina duser ve cozumleme hatasi ciktiyi
+            # SESSIZCE bosaltir; utf-8 + replace ile kanit her halukarda korunur.
             data = process.stdout
             try:
                 results_data = json.loads(data)
@@ -155,7 +171,9 @@ def run():
                     "id": "SCAN-PIPAUDIT",
                     "category": "scan",
                     "title": "Dependency Audit with pip-audit",
-                    "status": "FAIL",
+                    "status": "ERROR",
+                    # Ayristirilamayan cikti = olcum yok. Gercek bulgu yolu (asagida
+                    # vulnerable_count > 0) FAIL olarak KALIR; degisen yalnizca bu dal.
                     "severity": "high",
                     "evidence": f"Failed to parse output: {data[:200]}",
                     "remediation": "pip install pip-audit; review requirements.txt findings"
@@ -166,7 +184,8 @@ def run():
                 "id": "SCAN-PIPAUDIT",
                 "category": "scan",
                 "title": "Dependency Audit with pip-audit",
-                "status": "FAIL",
+                "status": "ERROR",
+                # Zaman asimi = olcum yok.
                 "severity": "high",
                 "evidence": "Scan timed out.",
                 "remediation": "pip install pip-audit; review requirements.txt findings"
@@ -200,8 +219,33 @@ def run():
         try:
             # Controller splice: path'siz 'scan' repo'yu taramiyordu (sahte PASS=0). --all-files ile
             # gercek dosyalar taranir; .pytest_cache (sabit CACHEDIR.TAG) false-positive olarak haric.
-            cmd = [sys.executable, "-m", "detect_secrets", "scan", "--all-files", "--exclude-files", r"\.pytest_cache"]
-            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True, timeout=300)
+            _EXCLUDE = (r"(^|[\\/])(build_nuitka_312|build_nuitka_onefile|build_nuitka)[\\/]"
+                        r"|\.pytest_cache")
+            # Ayirici olarak [\\/] kullanilir, duz `/` DEGIL.
+            # Olculdu (2026-08-02): ilk surum yalnizca `/` ile yazilmisti; Windows'ta yollar
+            # ters egik cizgiyle geldigi icin desen HICBIR seyi eslemedi, dislama etkisiz
+            # kaldi ve tarama yine 3,7 GB gezip 351 saniyede zaman asimina dustu. Testi de
+            # yalnizca egik-cizgili orneklerle yazdigim icin test YESIL yandi -- olcmedigi
+            # seyi olctugunu sanan bir sinav. Artik test iki bicimi de dener.
+            # Tarama kapsami: Nuitka DERLEME CIKTISI haric tutulur.
+            # Olculdu (2026-08-02): depo 11.760 dosya / 3.776 MB ve bunun %95'i uc derleme
+            # dizini (build_nuitka 6.514 dosya / 2.275 MB, build_nuitka_312 2.916,
+            # build_nuitka_onefile 1.762) -- hepsi .pyd/.dll ikili ciktisi. Gercek kaynak
+            # toplam ~2 MB. Bu 3,7 GB'i gezmek 300 saniyelik siniri asiyordu ve zaman asimi
+            # "kritik acik" olarak raporlaniyordu; yani "guvenlik acigi" sanilan sey aslinda
+            # derleme klasorunu taramaya calismakti.
+            # Kor nokta YARATMAZ: bu ikili dosyalar kaynaktan uretilir, kaynakta secret varsa
+            # kaynak taramasinda zaten yakalanir. _bak_archive BILEREK haric tutulmadi --
+            # bir config yedegi gercek anahtar tasiyabilir ve kucuk oldugu icin ucuzdur.
+            cmd = [sys.executable, "-m", "detect_secrets", "scan", "--all-files",
+                   "--exclude-files", _EXCLUDE]
+            process = subprocess.run(cmd, cwd="d:/kasa", capture_output=True, text=True,
+                                     encoding="utf-8", errors="replace", timeout=300)
+            # Bu cagri kodlamaya en duyarli olani: detect-secrets TUM depoyu tarar ve bulgu
+            # satirlarini ciktiya koyar; bu depoda Turkce yorum/dize bol oldugu icin cikti
+            # neredeyse kesin UTF-8 bayt icerir. Kodlama sabitlenmezse cikti bosalir,
+            # json.loads("") patlar ve tarayici "Failed to parse output" diye HIC YAPMADIGI
+            # bir bulguyu raporlar -- yani sahte kirmizi.
             data = process.stdout
             try:
                 results_data = json.loads(data)
@@ -248,7 +292,10 @@ def run():
                     "id": "SCAN-SECRETS",
                     "category": "scan",
                     "title": "Secret Detection with Detect-Secrets",
-                    "status": "FAIL",
+                    "status": "ERROR",
+                    # Gercek gizli-anahtar bulgusu yukaridaki dalda FAIL olarak KALIR
+                    # (bearer_token allowlist'te olmadigi icin gizlenemez). Burasi yalnizca
+                    # "arac cevap veremedi" dalidir.
                     "severity": "critical",
                     "evidence": f"Failed to parse output: {data[:200]}",
                     "remediation": "Review filesystem findings"
@@ -259,7 +306,10 @@ def run():
                 "id": "SCAN-SECRETS",
                 "category": "scan",
                 "title": "Secret Detection with Detect-Secrets",
-                "status": "FAIL",
+                "status": "ERROR",
+                # 2026-08-01 kosusunda tezgah tam burada "FAIL critical" bastı ve kaniti
+                # yalnizca "Scan timed out." idi -- yani hicbir sey taranmadan kritik acik
+                # ilan edildi. Bu satir o sahte kirmiziyi kapatir.
                 "severity": "critical",
                 "evidence": "Scan timed out.",
                 "remediation": "Review filesystem findings"

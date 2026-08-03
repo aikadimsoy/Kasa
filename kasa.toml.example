@@ -5,7 +5,11 @@
 host = "127.0.0.1"
 port = 8000
 bearer_token = ""   # auto-filled on first run
-allowed_origins = ["http://localhost", "http://127.0.0.1", "null"]
+# Turkce not: "null" origin BILEREK cikarildi — sandbox'li iframe, data: ve file://
+# baglamlari Origin basligini "null" olarak gonderir; listede olmasi taze kurulumda CORS'u
+# "yalniz localhost" olmaktan cikarirdi. Bu satir artik kod-ici varsayilanla (src/config.py)
+# birebir ayni. Ihtiyacin varsa bilerek ekle.
+allowed_origins = ["http://localhost", "http://127.0.0.1"]
 
 [vault]
 path = "~/.kasa/vault"   # use absolute path or ~ for home dir

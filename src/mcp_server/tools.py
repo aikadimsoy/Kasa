@@ -234,6 +234,10 @@ class VaultTools:
         details = {"start_index": start_index, "count": count}
 
         if not self._check_permission("audit:read"):
+            # C2-GAP fix (2026-08-02): ret de denetim izine YAZILMALI (diger araclarla tutarli).
+            # Sebep: yetkisiz denetim-okuma denemesi sessiz kaliyordu -> adli iz birakmiyordu;
+            # canli saldiri araci bunu "saldirgan denedi, audit bos" uyusmazligi olarak olctu.
+            self.audit_chain.record(self.agent_id, action, {**details, "result": "permission_denied"})
             raise PermissionError(f"Ajan '{self.agent_id}' için denetim okuma izni yok.")
 
         cursor = self._db().cursor()
@@ -291,6 +295,8 @@ class VaultTools:
         köken zincirinden üstündür, orada gerçek silme sürer.
         """
         if not self._check_permission("admin:prune"):
+            # C2-GAP fix (2026-08-02): yetkisiz prune (yikici temizlik) denemesi de iz birakmali.
+            self.audit_chain.record(self.agent_id, "prune_expired_events", {"result": "permission_denied"})
             raise PermissionError(f"Ajan '{self.agent_id}' için prune izni yok.")
 
         conn = self._db()

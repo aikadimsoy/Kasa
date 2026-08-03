@@ -93,21 +93,29 @@ class KasaTrayApp:
 
     def open_browser_window(self):
         # PyQt5 + pywebview aynı process'te çalışamaz — ayrı process aç
+        #
+        # Turkce not: yorumlayici ve depo kokunun tamami CALISMA-ANINDA turetilir; daha once
+        # burada sabit "C:\\Users\\<kullanici>\\...python.exe" ve "d:/kasa" yaziliydi -> repo
+        # baska bir makinede/dizinde CALISMIYORDU (ve sahibin hesap adini sizdiriyordu).
+        # KASA_PYTHON ile yorumlayici elle gecersiz kilinabilir (donmus/exe dagitim icin).
         import subprocess
         import pathlib
-        python = r"C:\Users\REDACTED-USER\AppData\Local\Python\bin\python.exe"
+        import sys
+        repo_root = pathlib.Path(__file__).resolve().parents[2]
+        python = os.environ.get("KASA_PYTHON") or sys.executable
         env = os.environ.copy()
         try:
             from src.config import load_config
-            cfg = load_config(pathlib.Path("d:/kasa/kasa.toml"))
+            cfg = load_config(repo_root / "kasa.toml")
             env["KASA_BEARER_TOKEN"] = cfg["server"]["bearer_token"]
         except Exception:
             pass
         subprocess.Popen(
             [python, "-c",
-             "import sys; sys.path.insert(0,'d:/kasa'); "
-             "from src.browser.browser_window import open_browser; open_browser()"],
-            cwd="d:/kasa",
+             "import sys; sys.path.insert(0, sys.argv[1]); "
+             "from src.browser.browser_window import open_browser; open_browser()",
+             str(repo_root)],
+            cwd=str(repo_root),
             env=env,
         )
 

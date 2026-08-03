@@ -19,7 +19,11 @@
 
 ## 5. Veri Sahipliği
 - Ham olaylar: TTL sonrası (7-30 gün) gerçek silme.
-- `forget(topic)`: profil + olaylar + audit tombstone — kalıcı garanti.
+- `forget(topic)`: profil + olaylar + audit tombstone — gerçek silme (hard-delete +
+  `PRAGMA secure_delete=ON`, `src/vault/database.py:191`). Ölçüm:
+  `tests/test_l2_at_rest.py:20` (forget sonrası şifreli hücrelerde kalıntı yok),
+  `tests/test_flow_control.py:182` (tombstone'a rağmen gerçek silme).
+  "Garanti" denmez: ölçüm satır düzeyindedir, ham disk bloğu düzeyinde değil.
 - Bulut senkronizasyonu MVP-0 kapsamı dışıdır.
 
 ## 6. Ajan Özerklik Kademeleri
@@ -29,9 +33,15 @@
 - T3: açıkça izin verilmiş rutinler
 - Yeni kurulum daima T0'dan başlar.
 
-## 7. Denetim Garantisi
+## 7. Denetim Zinciri — Ölçülen ve Ölçülmeyen
 - Her vault erişimi audit zincirine yazılır.
-- Audit zinciri hash-chain ile korunur; değişiklik tespit edilebilir.
+- Zincir hash-chain ile korunur; **değiştirme ve silme tespit edilebilir** — ölçüm:
+  `docs/SECURITY_BENCHMARK.md`, `AUDIT-TAMPER-MODIFY` / `AUDIT-TAMPER-DELETE` PASS.
+- **Kimlik atfı güvence altında DEĞİLDİR.** `agent_id` istemci-beyanlıdır ve doğrulanmaz;
+  zincir "bu kayıt değişmedi"yi gösterir, "bunu şu ajan yaptı"yı göstermez — ölçüm:
+  `docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` §4.1 (dönen `agent_id` ile 300 istek,
+  0 fren, zincire 300 kalıcı satır). Bu yüzden bu bölüm "garanti" başlığını taşımaz;
+  kapatma planı aynı belgede P1 "kimlik bağlama".
 
 ## 8. Bilinen Hata Günlüğü
 - Onaylı içerik izinsiz yeniden biçimlendirilmemeli.

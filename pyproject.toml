@@ -1,0 +1,128 @@
+# KASA - proje meta verisi + pytest yapilandirmasi.
+#
+# TR-NOT (ogretici, ASCII-Turkce: TOML icinde ozel karakter YOK - Windows konsolu cp1254):
+# Bu dosya SADECE meta veri ve test ayari icerir. Bilerek bir [build-system] tablosu
+# EKLENMEDI, cunku depo su an "duz calistirma" duzeninde: kok dizindeki run.py /
+# kasa_app.py, kok dizini sys.path'e alarak 'src.*' paketlerini import eder
+# (ornek: run.py:14 'from src.vault.database import Vault'). Bir derleme arka ucu ve
+# paket kesfi tanimlamak, paket duzeni hakkinda HENUZ VERILMEMIS bir karar gerektirir
+# (src-layout'a tasima) ve mevcut import'lari sessizce kirabilir. Kural: emin degilsen
+# minimal tut. Wheel/sdist uretmek gerektiginde bu karar ayri alinmalidir.
+#
+# SONUC: 'pip install .' desteklenmiyor. Beklenti (DENENMEDI, bu bir olcum degil):
+# setuptools duz-duzende birden fazla ust duzey dizin gorup hata verir. Sessiz degil
+# gurultulu bir hata beklenir; birisi 'pip install .' denerse ve baska bir sey olursa
+# bu not duzeltilmelidir. Desteklenen kurulum yolu README'dekidir:
+# pip install -r requirements.txt + python run.py
+
+[project]
+name = "kasa"
+
+# SURUM DAYANAGI: build_kasa.ps1:19 '$Version = "0.1.0"' (Nuitka exe damgasi:
+# --product-version / --file-version ayni degeri kullanir). Uydurulmadi, oradan alindi.
+version = "0.1.0"
+
+description = "Sovereign, local-first encrypted memory vault for AI agents on Windows (SQLite + AES-GCM + DPAPI + brokered MCP access)"
+readme = "README.md"
+
+# OLCUMUN DURUST KAPSAMI (bu satirin gerekcesi abartilmamali):
+#   docs/EXE_PACKAGING_LOG.md:104 "Spike-2 (pywebview penceresi), Py3.14: SEGFAULT
+#   (exit 3)" olcumu MASAUSTU/EXE yolunda (Nuitka ikilisi + pywebview penceresi)
+#   yapildi. build_kasa.ps1:10 ve 29-31 bu yuzden 3.12 dayatir.
+#   AMA README.md:53 ayni olcumun sinirini acikca yazar: test takimi ve guvenlik
+#   tezgahi en son 3.14.5 altinda kosuldu. Python 3.13 hic olculmedi.
+# SONUC: alt sinir (>=3.12) olculmustur; UST SINIR (<3.13) bir OLCUM DEGIL,
+# dagitilan/desteklenen surumu daraltan bir TERCIHTIR. Sahip destek yuzeyini
+# genisletmek isterse bu satir ">=3.12" olarak gevsetilmelidir; boyle bir karar
+# verilmedigi icin dar hali korunuyor.
+requires-python = ">=3.12,<3.13"
+
+# LISANS: kok dizindeki LICENSE dosyasi kanonik AGPL-3.0 metnidir (LICENSE:1).
+# Sahibin karari AGPL-3.0 + TICARI ikili lisanstir; ticari kolun metni depoda HENUZ
+# YOK, o yuzden burada yalniz dosyaya isaret edilir (var olmayan bir belgeye atif yok).
+license = { file = "LICENSE" }
+
+authors = [
+    { name = "Erhan" },
+]
+
+keywords = [
+    "privacy",
+    "local-first",
+    "memory",
+    "vault",
+    "mcp",
+    "agent",
+    "encryption",
+    "windows",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Natural Language :: Turkish",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+]
+
+# BAGIMLILIKLAR: requirements.txt'ten AYNEN kopyalandi (surum sinirlari dahil).
+# Tek dogruluk kaynagi hala requirements.txt'tir; orasi degisirse burasi da degismeli.
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "pydantic>=2.0.0",
+    "PyQt5>=5.15.0",
+    "cryptography>=42.0.0",
+    # mcp: YALNIZ src/mcp_adapter stdio sureci icin (MIT lisans); exe'ye paketlenmez.
+    "mcp>=1.2",
+]
+
+[project.optional-dependencies]
+# Test kosumunun EK bagimliliklari. Bunlar calisma-ani bagimliligi DEGILDIR, o yuzden
+# requirements.txt'e eklenmedi. Her biri import zincirinden okundu, tahmin degil:
+#   pytest    -> test kosucusu. Alt sinir 7.0: asagidaki [tool.pytest.ini_options]
+#                'pythonpath' secenegi pytest 7.0 ile geldi.
+#   httpx     -> tests/conftest.py:11 'from fastapi.testclient import TestClient';
+#                starlette'in TestClient'i httpx uzerine kuruludur. Yoksa TUM test
+#                oturumu toplama (collection) asamasinda coker.
+#   pywebview -> src/browser/browser_window.py:1 'import webview'. Bu modulu
+#                tests/test_b1_bootstrap.py:13 ve tests/test_l4_toctou_gate.py:14
+#                import eder. Sahibin makinesinde olculen surum 6.2.1
+#                (build_kasa.ps1:56); testler yalniz import'in calismasini
+#                gerektirdigi icin alt sinir sabitlenmedi.
+test = [
+    "pytest>=7.0",
+    "httpx",
+    "pywebview",
+]
+
+# [project.urls]
+# TR-NOT: public depo adresi henuz kesin degil; UYDURULMADI. Sahip depoyu actiktan
+# sonra asagidaki satirlarin basindaki '#' kaldirilip gercek adres yazilmalidir.
+# Homepage = "https://github.com/<sahip-kullanici-adi>/kasa"
+# Issues = "https://github.com/<sahip-kullanici-adi>/kasa/issues"
+
+[tool.pytest.ini_options]
+# TR-NOT: Depoda daha once pytest.ini / setup.cfg / tox.ini YOKTU (kontrol edildi);
+# bu yuzden cakisan bir ayar ezilmiyor. Burada YALNIZCA iki ayar var ve ikisi de
+# davranisi gizlice degistirmiyor:
+#
+# testpaths -> 'pytest' argumansiz kosuldugunda yalniz tests/ taranir. Sebep olculebilir:
+#   depo kokunde _bak_archive/ ve build_nuitka*/ gibi test OLMAYAN agaclar var;
+#   testpaths olmadan toplama bunlara girip alakasiz hata uretebiliyor.
+#
+# pythonpath -> depo kokunu sys.path'e ekler (yol rootdir'e goredir). Boylece
+#   'import src.*' testlerde calisir. Bu, test dosyalarindaki gomulu
+#   sys.path.insert(0, "d:/kasa") satirlarinin YERINI TUTMAZ (onlar mutlak yol
+#   kullanir), yalnizca import yolunu makineden bagimsiz hale getirir.
+#
+# BILEREK EKLENMEDI: addopts icinde --ignore=... yok. CI'da dislenen testler
+# (canli Ollama/tarayici gerektirenler) YERELDE kirmizi yanmaya devam etmeli;
+# onlari buradan gizlemek "sahte-yesil" olurdu.
+testpaths = ["tests"]
+pythonpath = ["."]

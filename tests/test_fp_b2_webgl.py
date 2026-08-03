@@ -1,36 +1,31 @@
 # -*- coding: utf-8 -*-
-"""WebGL2 baglaminda da GPU spoof uygulanmis olmali (WebGL1-only patch sizinti birakiyordu)."""
+"""Davranissal B2 (WebGL/GPU) testi: gercek tarayiciyi acar, adversary_site'e yonlendirir
+ve WebGL UNMASKED_RENDERER_WEBGL parametrelerinin tele (captures.jsonl) gercek GPU mu
+yoksa spoof deger mi sizdirdigina bakar."""
+import sys
 import os
 
-BROWSER_FILE = os.path.join("d:/kasa", "src/browser/browser_window.py")
+# kasa dizinini yola ekle ki importlar calissin
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from _orch.loop.browser_gate import run_gate
 
+def test_webgl_behavioral_spoofing():
+    # run_gate() KASA'yi baslatir ve 8901 portundaki adversary'e gonderir.
+    # FLAKE FIX: full-suite yuku altinda gercek Chromium boot'u zaman zaman timeout'u asiyordu
+    # (hata boot_ok'ta, leak'te DEGIL). Yalnizca BOOT flake'ini retry ile absorbe et; guvenlik
+    # assertion'ini (leak) ASLA retry'lama -> gercek WebGL sizintisi sert bicimde kirmizi kalir.
+    report = {}
+    for _attempt in range(3):
+        try:
+            ok, report = run_gate(mode="fingerprint", timeout_s=20)
+        except Exception as e:  # gecici boot/JS istisnasini absorbe et, kalici olan asagida patlar
+            report = {"boot_ok": False, "error": repr(e)}
+        if report.get("boot_ok") is True:
+            break
 
-def _read():
-    with open(BROWSER_FILE, encoding="utf-8") as f:
-        return f.read()
+    assert report.get("boot_ok") is True, f"Browser 3 denemede baslatilamadi: {report}"
 
+    leaks = report.get("leaks", [])
+    sample_renderer = report.get("sample", {}).get("js", {}).get("webglRenderer", "")
 
-def test_webgl2_context_patched():
-    src = _read()
-    assert "WebGL2RenderingContext" in src, "WebGL2 baglami hic yamanmamis, GPU sizmaya devam eder"
-
-
-def test_webgl2_patch_near_poisoning_block_and_reuses_seed():
-    src = _read()
-    start = src.find("WebGL Fingerprint Poisoning")
-    assert start != -1, "WebGL Fingerprint Poisoning bolumu bulunamadi"
-    end = src.find("Known Tracker Cookie Poisoning")
-    assert end != -1 and end > start
-    block = src[start:end]
-    assert "WebGL2RenderingContext" in block, "WebGL2 yamasi dogru bolumde degil"
-    assert block.count("_kp_webgl_idx") >= 2, (
-        "WebGL2 patch'i WebGL1 ile AYNI seed'i (_kp_webgl_idx) kullanmali "
-        "(aksi halde iki baglam farkli sahte deger doner, bu tutarsizlik "
-        "kendisi yeni bir teshis sinyali olur)"
-    )
-
-
-def test_webgl1_patch_still_present():
-    src = _read()
-    assert "webglProto.getParameter" in src
-    assert "WebGLRenderingContext.prototype" in src
+    assert "webgl" not in leaks, f"B2 (WebGL) acik! Gercek GPU tele dustu: {sample_renderer}"
