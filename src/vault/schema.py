@@ -91,6 +91,32 @@ CREATE TABLE IF NOT EXISTS audit_checkpoint (
 );
 """
 
+# Ajan kimlik bagi (F-IMP kok-neden fix): bir token'i BIR ajan kimligine baglar.
+#
+# SEBEP (olculdu, docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md §F-IMP): eskiden tek bir
+# paylasilan bearer token vardi ve agent_id ISTEK GOVDESINDEN geliyordu. Token hangi ajana
+# ait oldugunu BILMEDIGI icin dogrulanamiyordu; token sahibi agent_id="browser" diyip o
+# kimligin iznini devralabiliyordu (event_ingest -> HTTP 200). Ayni kok neden hiz sinirini
+# da deliyordu: kova beyan edilen kimlige anahtarlandigi icin donen kimlikle 150 istekte
+# 0 adet 429 uretiliyordu.
+#
+# token_hash NEDEN duz SHA-256 (yavas KDF degil): token'lar `secrets` ile uretilen
+# yuksek-entropili rastgele dizelerdir (parola DEGIL). Yavas KDF'in amaci dusuk-entropili
+# sirlarda sozluk saldirisini pahalilastirmaktir; 256-bit entropide sozluk saldirisi diye
+# bir sey yoktur. Buradaki hash'in isi gizlilik degil ARAMA: diskte duz token tutmamak.
+CREATE_AGENT_TOKENS_TABLE = """
+CREATE TABLE IF NOT EXISTS agent_tokens (
+    agent_id TEXT PRIMARY KEY, -- token'in BAGLI oldugu kimlik (istemci beyani DEGIL)
+    token_hash TEXT NOT NULL UNIQUE, -- SHA-256(token); duz token asla saklanmaz
+    created_at REAL NOT NULL,
+    revoked_at REAL -- NULL = etkin
+);
+"""
+
+CREATE_AGENT_TOKENS_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_agent_tokens_hash ON agent_tokens (token_hash);
+"""
+
 # Tüm DDL komutlarını bir listede topla
 ALL_TABLES = [
     CREATE_EVENTS_TABLE,
@@ -98,10 +124,12 @@ ALL_TABLES = [
     CREATE_PERMISSIONS_TABLE,
     CREATE_AUDIT_TABLE,
     CREATE_AUDIT_CHECKPOINT_TABLE,
+    CREATE_AGENT_TOKENS_TABLE,
 ]
 
 ALL_INDEXES = [
     CREATE_EVENTS_INDEX,
     CREATE_PROFILE_INDEX,
     CREATE_AUDIT_INDEX,
+    CREATE_AGENT_TOKENS_INDEX,
 ]

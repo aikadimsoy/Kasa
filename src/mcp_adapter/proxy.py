@@ -22,10 +22,32 @@ import os
 import urllib.error
 import urllib.request
 from typing import Any
+from urllib.parse import urlparse
 
 from src.config import load_config
 
 _TIMEOUT = 30  # saniye; yerel cagri icin bol
+
+# Loopback ana-adlari. IPv6 loopback (::1) dahil; digerleri reddedilir.
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _is_loopback_url(url: str) -> bool:
+    """True yalnizca URL http/https ve ANA-ADI tam olarak bir loopback ise.
+
+    Turkce not (guvenlik olcumu): eskiden `url.startswith("http://127.0.0.1")` idi ve
+    `http://127.0.0.1.evil.example` ile `http://127.0.0.1@evil.example` bu METINSEL
+    kontrolden GECIYORDU (biri alt-alan, digeri userinfo hilesi) -> air-gap iddiasi
+    yaniltici. Cozum: URL'yi AYRISTIR ve yalnizca `hostname`i (userinfo/port haric,
+    ayristiricinin cozdugu gercek ana-ad) tam-eslesme ile denetle.
+    """
+    try:
+        p = urlparse(url)
+    except Exception:
+        return False
+    if p.scheme not in ("http", "https"):
+        return False
+    return (p.hostname or "").lower() in _LOOPBACK_HOSTS
 
 
 def build_settings() -> dict:
@@ -38,7 +60,7 @@ def build_settings() -> dict:
     if host not in ("127.0.0.1", "localhost"):
         host = "127.0.0.1"
     base_url = os.environ.get("KASA_SERVER_URL") or f"http://{host}:{port}"
-    if not base_url.startswith(("http://127.0.0.1", "http://localhost")):
+    if not _is_loopback_url(base_url):
         raise ValueError("only loopback server URLs are allowed (air-gap)")
     agent_id = os.environ.get("KASA_MCP_AGENT_ID", "mcp_client")
     if agent_id == "system":
