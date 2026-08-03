@@ -2,7 +2,12 @@
 """Paranoid seviyede bilinen tracker isteklerinin engellenmesi (su ana kadar sadece etikette vaat ediliyordu)."""
 import os
 
-BROWSER_FILE = os.path.join("d:/kasa", "src/browser/browser_window.py")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+BROWSER_FILE = os.path.join(_KASA_ROOT, "src/browser/browser_window.py")
 
 
 def _read():

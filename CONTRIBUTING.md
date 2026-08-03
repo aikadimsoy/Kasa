@@ -84,9 +84,15 @@ py -3.12 -m pip install pytest httpx pywebview
 py -3.12 -m pytest tests/ -q --ignore=tests/browser
 ```
 
-**Damga okuması:** `214 passed, 1 xfailed`
-(kaynak: [`docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md`](docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md)
-§2.6 regresyon satırı, 2026-08-02).
+**Damga okuması:** `233 passed, 1 xfailed` (2026-08-03).
+
+Bu sayı, **izlenen dosyaların başka bir yoldaki izole bir kopyasında** alındı ve import
+kaynağı ayrıca doğrulandı — koşunun sessizce yazarın çalışma ağacına düşmediği ölçüldü.
+Bunun önemi şu: daha önceki bir deneme aynı takımı bir kopyadan yeşil raporladı, oysa
+33 test dosyası `sys.path`'e sabit `d:/kasa` eklediği için **her modül gerçek depodan
+import ediliyordu** — klasik bir yanlış-PASS. O kökler artık `__file__`'dan türetiliyor,
+dolayısıyla herhangi bir yola klonlanan depo kendi kodunu koşar. `_orch/` altındaki bazı
+betiklerde hâlâ mutlak yol var; onlar bakımcı araçlarıdır ve test takımında koşmazlar.
 
 **Dürüstlük notu — hangi yorumlayıcı:** o damga aynı belgenin §5'inde yazılı komutla, yani
 `py -3.14 -m pytest tests/ -q --ignore=tests/browser` ile alınmıştı; 3.12 ile aynı sayının
@@ -101,16 +107,14 @@ düştüyse sebebini yazın; düşmesi otomatik ret değil, **açıklanmamış**
 `tests/browser` dışarıda bırakılıyor çünkü canlı tarayıcı/WebView2 ve model gerektiriyor;
 ayrı koşulur.
 
-**Bilinen kısıt (depoyu başka bir yola klonlarsanız):** dört test dosyası depo kökünü
-`d:/kasa` olarak **sabit** yazıp o yoldan dosya okuyor — `tests/test_browser_gate.py:6`,
-`tests/test_kasa_health_hook.py:5`, `tests/test_terms_gate.py:82`,
-`tests/test_tracker_block_paranoid.py:5` (ayrıca `tests/conftest.py:15`'teki `repo_root`
-fikstürü aynı yolu döndürüyor; şu an hiçbir test onu kullanmıyor).
-Import yolu `pyproject.toml`'daki
-`pythonpath = ["."]` sayesinde çalışır, ama bu dosyaların dosya-yolu iddiaları başka bir
-konumda tutmaz. Yani yukarıdaki sayı `d:\kasa` dışında birebir yeniden üretilemez. Kök
-çözüm (yolu `Path(__file__)` ile türetmek) sahibin kararını bekliyor; tek başına bunu
-düzelten bir PR gönderecekseniz önce issue açın.
+**Bu kısıt kapatıldı (2026-08-03).** Daha önce burada şu yazıyordu: birkaç test dosyası depo
+kökünü `d:/kasa` olarak sabit yazdığı için takım başka bir yolda birebir yeniden
+üretilemiyordu. Ölçüm bunun sanılandan geniş olduğunu gösterdi — **dört değil 33 dosya**,
+ve etkisi "dosya bulunamaz"dan daha sinsiydi: `sys.path`'in başına eklenen sabit kök
+yüzünden başka bir yoldan koşulan takım bile modülleri gerçek depodan import ediyor,
+dolayısıyla **yeşil bir yanlış-PASS** üretiyordu. Kökler artık `__file__`'dan türetiliyor
+(`tests/conftest.py` dâhil) ve doğrulama, import kaynağını da denetleyerek yapılıyor.
+`_orch/` altındaki bakımcı betiklerinde mutlak yollar sürüyor; test takımı onları koşmaz.
 
 Güvenlik tezgahı ayrı bir alettir ve testlerin yerine geçmez:
 [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md) onun çıktısıdır. Güvenlik
@@ -289,13 +293,19 @@ Spike-2; the same spike passes on 3.12). Day-to-day runs in this repo have been 
 `requirements.txt` (`pyproject.toml`, `[project.optional-dependencies] test`):
 `pip install pytest httpx pywebview`. Then
 `py -3.12 -m pytest tests/ -q --ignore=tests/browser`. The reading recorded on
-2026-08-02 was **214 passed, 1 xfailed** — that is a dated stamp, not a permanent promise;
+2026-08-03 was **233 passed, 1 xfailed** — that is a dated stamp, not a permanent promise;
 run it yourself on your own base and report your own number, **and say which interpreter
-you used**: that stamp was taken with `py -3.14` (§5 of the source document) and the same
-day's security bench ran on 3.14.5, while the 3.12 requirement comes from the build side.
-`tests/browser` needs a live browser and a model, so it runs separately. Note that four
-test files hard-code the repository root as `d:/kasa`, so the suite is not byte-for-byte
-reproducible from a clone at another path — see the Turkish section for the file list.
+you used**: that stamp was taken with `py -3.14` and the security bench ran on 3.14.5,
+while the 3.12 requirement comes from the build side.
+`tests/browser` needs a live browser and a model, so it runs separately.
+
+That number was taken **in an isolated copy of the tracked files at a different path**, with
+the import origin checked so the run could not silently fall back to the author's working
+tree. This matters: an earlier attempt reported the same suite green from a copy while every
+module was actually being imported from `d:\kasa`, because 33 test files hard-coded that
+root on their `sys.path`. Those roots are now derived from `__file__`, so a clone at any
+path runs its own code. Some scripts under `_orch/` still carry absolute paths; they are
+maintainer tooling and are not exercised by the suite.
 
 **Code rules** (binding text: `KURALLAR.md`). Identifiers may be English, but **every file
 carries a Turkish explanatory note**, and Turkish written *inside code, YAML or TOML* must

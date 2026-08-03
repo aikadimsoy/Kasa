@@ -16,7 +16,12 @@ import sys
 
 import pytest
 
-sys.path.insert(0, "d:/kasa")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+sys.path.insert(0, _KASA_ROOT)
 
 from tools.security_bench.checks import scan as scan_mod  # noqa: E402
 

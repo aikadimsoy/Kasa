@@ -14,7 +14,8 @@ dondu; deepseek uzun promptta 400). Guvenlik-kritik yol Controller elle-dogrulan
 # turetilir -> repo herhangi bir dizine klonlanabilir (public yayin icin gerekli tasinabilirlik).
 import pathlib
 import sys
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT))
 import os, re, json, argparse, sqlite3, urllib.request
 from urllib.parse import urlparse
 from collections import defaultdict
@@ -24,7 +25,7 @@ from src.vault.redact import sanitize_untrusted_text  # delimiter-breakout / pro
 from src.vault.database import Vault
 from src.mcp_server.tools import VaultTools
 
-DB = "d:/kasa/kasa.db"
+DB = str(_REPO_ROOT / "kasa.db")
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL = "hermes3:8b"
 
@@ -145,7 +146,7 @@ def main():
     if not args.apply:
         print("\n[DRY-RUN] hicbir sey yazilmadi. Commit icin: --apply")
         return
-    vault = Vault(vault_path="d:/kasa"); vault.connect()
+    vault = Vault(vault_path=str(_REPO_ROOT)); vault.connect()
     tools = VaultTools(vault, agent_id="system")
     written = 0
     for f in survivors:

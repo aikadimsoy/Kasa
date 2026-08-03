@@ -1,5 +1,10 @@
 import sys, os, sqlite3, tempfile, shutil, unittest
-sys.path.insert(0, 'd:/kasa')
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+sys.path.insert(0, _KASA_ROOT)
 from src.vault.database import Vault
 from src.vault.audit import AuditChain
 from src.vault.schema import CREATE_AUDIT_TABLE

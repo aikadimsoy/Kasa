@@ -2,6 +2,34 @@
 
 A Sovereign, Local-First Memory Vault for Agentic Browsing on Windows
 
+> ## ⚠️ v0.1 — Research Preview / Security Architecture Demo
+>
+> **This is an experimental prototype. Do not use it for production or for sensitive data.**
+>
+> It exists to demonstrate and *measure* an architecture — permissions, encryption and audit
+> for local AI agents — not to be a finished product. Run it against throwaway data.
+>
+> **What is actually true today**, each item pointing at its evidence rather than asserting a
+> property:
+>
+> | | |
+> |---|---|
+> | Runs entirely locally | vault file, key and permission decisions never leave the machine |
+> | Encrypts *specific* fields | 3 columns, AES-256-GCM, AAD-bound — **not** the whole database |
+> | Limits tool authority in ordinary code | deterministic broker; the model is never the boundary |
+> | Keeps a hash-chained audit ledger | tamper and deletion detection both measured PASS |
+> | 233 tests pass | 2026-08-03 run, **in an isolated copy** that imports only from itself |
+>
+> **What is NOT claimed** — these are open, written down, and some are measured failures:
+> identity binding (`agent_id` is client-asserted and audit *attribution* is forgeable),
+> full at-rest encryption, egress control, and independent security audit. The KASA browser
+> ships **disabled** because of a known bridge-isolation defect. The project's own benchmark
+> currently records the verdict **not release-ready**.
+>
+> We publish our own negative results. The open findings are in
+> [`SECURITY.md`](SECURITY.md); the failing measurements are in
+> [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md). Start there, not here.
+
 ## The Problem
 
 Current agentic browsers store persistent user memory in vendor clouds, posing significant privacy and control issues. Users lack ownership of their browsing data, and the legal implications of granting permissions to AI agents are not clearly defined. This project aims to address these shortcomings by providing a local-first, encrypted, user-owned memory vault that can be accessed by any agent via a permission-brokered MCP (Model Context Protocol) server.
@@ -56,9 +84,33 @@ per-check evidence strings), the per-test detail with explicit limits is
     [`SECURITY.md`](SECURITY.md) and
     [`docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md`](docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md).
     This is **not** closed.
+  - *KASA browser bridge isolation* — **open, and the reason the browser ships disabled.** The
+    pywebview `js_api` bridge lives in the visited page's JS context and page scripts are
+    injected with no origin check, so any visited site can reach `window.pywebview.api.*`,
+    including `set_proxy()` and `ingest()`. `open_browser()` now refuses to start without
+    `KASA_ENABLE_BROWSER=1`, failing closed before any side effect
+    (`tests/test_browser_optin_gate.py`, with both a negative and a positive control).
+    **Limit:** established from code structure and from the ingest feature's own operation;
+    **no working exploit was written or run.** Full write-up: [`SECURITY.md`](SECURITY.md),
+    "Known-unsafe surfaces". A smaller defect on the same surface *was* fixed — the address
+    bar no longer interpolates the URL into HTML.
   - *Automated test→fix loops* — a zero-cost local-model loop plus browser health gates run the
     checks repeatedly (`_orch/loop/`, `tools/security_bench/`). They raise regression coverage;
     they are not evidence of security by themselves.
+
+### Roadmap
+
+Ordered by what blocks the next honest claim, not by effort. Each item closes a gap that is
+currently measured open — the evidence is linked from [`SECURITY.md`](SECURITY.md).
+
+| Version | Goal | Closes |
+|---|---|---|
+| **v0.1** *(this release)* | Clean public repo, safe example config, limits stated plainly | — |
+| **v0.2** | **Verified process/agent identity** — resolve `agent_id` from the token, reject mismatches | F-IMP; makes audit *attribution* meaningful, and fixes the rate-limit bypass that shares its root cause |
+| **v0.3** | **Default-deny egress + capability permissions** | "no egress control" |
+| **v0.3** | **Privileged UI outside page context** | the browser bridge isolation defect above |
+| **v0.4** | Attack testing, brakes and budgets | turns the red-team scripts into gates |
+| **v1.0** | Production candidate — *after* independent security review | "no independent audit" |
 
 ## Install & Run
 

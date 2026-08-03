@@ -1,4 +1,9 @@
-import sys; sys.path.insert(0, "d:/kasa")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+import sys; sys.path.insert(0, _KASA_ROOT)
 from src.vault.database import Vault              # Vault(vault_path).connect(); .db_path; .close()
 from src.mcp_server.tools import VaultTools       # VaultTools(vault, agent_id="system")
 from src.distill.engine import DistillEngine      # DistillEngine(db_path, ollama_url).run_batch()

@@ -40,6 +40,18 @@ MVP-0 çekirdeği: yerel-öncelikli şifreli hafıza kasası + izin-aracılı MC
 - Hız sınırlayıcı sözlüğüne **üst sınır + LRU tahliye** eklendi; istemci-beyanlı `agent_id`
   ile sınırsız bellek büyümesi kapatıldı.
 - Yeni üretilen bearer token artık **DPAPI ile korunarak** saklanır (düz metin yerine).
+- **KASA tarayıcısı varsayılan olarak KAPALI.** `open_browser()`, `KASA_ENABLE_BROWSER=1`
+  ayarlanmadıkça başlamaz ve **hiçbir yan etki oluşmadan önce** reddeder (proxy ortamı
+  uygulanmaz, pencere açılmaz, `js_api` köprüsü kurulmaz). Sebep: köprü ziyaret edilen
+  sayfanın JS bağlamında bulunuyor ve sayfa betikleri origin denetimi olmadan enjekte
+  ediliyor → ziyaret edilen her site `set_proxy()` / `ingest()` çağırabiliyor. Ayrıntı ve
+  dürüst sınırlar: `SECURITY.md`, "Known-unsafe surfaces".
+- **Adres çubuğunda çift-çözümleme açığı kapatıldı.** Sayfa URL'si HTML dizgesine
+  gömülürken yalnız `"` kaçırılıyor, `&` kaçırılmıyordu; URL artık DOM `.value` özelliğiyle
+  atanıyor, böylece kaçırma sorusu tümüyle ortadan kalkıyor.
+- Yukarıdaki ikisi `tests/test_browser_optin_gate.py` ile mühürlendi — **negatif kontrol**
+  (eski açık kalıbı 3/3 yakalanıyor) ve **pozitif kontrol** (opt-in verilince akış kapının
+  ötesine geçiyor, yani kapı "her zaman reddet" değil) birlikte.
 
 ### Bilinen sınırlar (dürüst beyan)
 - `agent_id` **istemci-beyanlıdır**: token sahibi başka bir ayrıcalıklı kimliği taklit
@@ -48,6 +60,15 @@ MVP-0 çekirdeği: yerel-öncelikli şifreli hafıza kasası + izin-aracılı MC
 - Ağ çıkışı (egress) henüz **ölçülmemiştir**; ilgili plan `docs/GUVENLIK_CIKIS_PLANI.md`.
 - Prompt injection sektör genelinde açık bir problemdir; KASA'nın savunması **yapısaldır**
   (model asla güvenlik sınırı değildir), dokunulmazlık iddiası değildir.
+- **Tarayıcı köprü izolasyonu açıktır** (yukarıda). Kapı, yüzeyi varsayılan olarak
+  kapatır — kusuru **düzeltmez**. Düzgün çözüm mimaridir: pywebview'da `js_api` pencere
+  başınadır, origin başına değil; sayfa bağlamına konan hiçbir şey (nonce dâhil) sayfadan
+  gizlenemez. Ayrıcalıklı arayüzü sayfa bağlamının dışına almak yol haritasındadır.
+  Bulgu kod yapısından kuruldu; **çalışan bir sömürü yazılmadı ve koşulmadı** — bu satır
+  ölçüldüğü seviyede duruyor, bir üstünde değil.
+- Bu sürüm bir **araştırma önizlemesidir**; üretim veya hassas veri için önerilmez. Projenin
+  kendi güvenlik tezgâhı `docs/SECURITY_BENCHMARK.md` kararı **yayına hazır değil**'dir ve
+  bu bilinerek yayımlanmaktadır.
 
 ### Lisans
 - Kaynak kod **AGPL-3.0-or-later** ile yayımlanır (`LICENSE`).

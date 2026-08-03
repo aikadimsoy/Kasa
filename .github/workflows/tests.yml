@@ -56,52 +56,6 @@ jobs:
           python-version: '3.12'
           cache: pip
 
-      # ---------------------------------------------------------------------------
-      # D:\kasa YOL KANCASI - kalici cozum DEGIL, dogrulanmis bir gecici koprudur.
-      #
-      # OLCUM: depo genelinde mutlak yol gomulu. Ornekler:
-      #   tests/conftest.py:2,15            sys.path.insert(0, "d:/kasa") + repo_root fixture
-      #   tests/test_browser_gate.py:6      REPO = "d:/kasa"
-      #   tests/test_terms_gate.py:82       open("d:/kasa/TERMS_OF_USE.md")
-      #   tests/test_guard_retention.py:7   sys.path.insert(0, "d:/kasa/_orch/loop")
-      #   tools/security_bench/b1_seal.py:24, tools/security_bench/checks/scan.py:53
-      #   src/browser/browser_window.py:1260
-      # Runner'da checkout dizini D:\kasa DEGILDIR; bu dosyalar bulunamaz ve testler
-      # coker. Junction (NTFS dizin baglantisi, yonetici yetkisi ISTEMEZ) ile D:\kasa
-      # checkout dizinine baglanir. DOGRU COZUM: yollari depo-koku-goreli hale getirmek
-      # (pathlib.Path(__file__).resolve().parents[1]); bu is akisi onu YAPMAZ, cunku
-      # test dosyalarini degistirmek bu gorevin kapsami disindaydi.
-      # UYARI: self-hosted runner'da D:\kasa zaten sahibin CANLI calisma agacidir. O
-      # durumda asagidaki sentinel dogrulamasi devreye girer: pytest'in PR'in kodunu
-      # degil baska bir agaci olcmesi (sahte sonuc) ihtimali kirmiziya cevrilir.
-      # ---------------------------------------------------------------------------
-      - name: 'D:\kasa junction (gomulu mutlak yollar icin)'
-        shell: pwsh
-        run: |
-          if (-not (Test-Path 'D:\')) {
-            Write-Error "D: surucusu yok. Depodaki gomulu 'd:/kasa' yollari cozulemez; testler ANLAMLI kosamaz. Sahte-yesil yerine kirmizi."
-            exit 1
-          }
-          if (-not (Test-Path 'D:\kasa')) {
-            New-Item -ItemType Junction -Path 'D:\kasa' -Target "$env:GITHUB_WORKSPACE" | Out-Null
-            Write-Host "junction kuruldu: D:\kasa -> $env:GITHUB_WORKSPACE"
-          } else {
-            Write-Host "D:\kasa zaten var -> junction olusturulmadi; ayni agac mi diye DOGRULANIYOR"
-          }
-          # SAHTE-SONUC KALKANI: D:\kasa GERCEKTEN bu checkout mu? Sentinel dosyasi
-          # workspace'e yazilir; D:\kasa'dan gorunmuyorsa oradaki agac BASKA bir agactir
-          # (ornek: self-hosted runner'da sahibin commit edilmemis calisma agaci).
-          # O halde pytest sonucu PR hakkinda BIR SEY SOYLEMEZ -> kirmizi ver, yesil verme.
-          $sentinel = "kasa_ci_sentinel_$([guid]::NewGuid().ToString('N')).tmp"
-          $wsFile = Join-Path $env:GITHUB_WORKSPACE $sentinel
-          Set-Content -LiteralPath $wsFile -Value 'ci' -NoNewline
-          $seen = Test-Path -LiteralPath (Join-Path 'D:\kasa' $sentinel)
-          Remove-Item -LiteralPath $wsFile -Force
-          if (-not $seen) {
-            Write-Error "D:\kasa bu checkout DEGIL (sentinel gorunmedi). pytest baska bir agaci olcerdi = sonuc bu PR hakkinda degildir. Durduruluyor."
-            exit 1
-          }
-          Write-Host "dogrulandi: D:\kasa == $env:GITHUB_WORKSPACE"
 
       - name: Bagimliliklari kur
         shell: pwsh
@@ -156,7 +110,38 @@ jobs:
       #   bile processed=len(events) uzerinden GERCEKTEN olculur. Diger iki test
       #   urlopen'i monkeypatch eder (deterministik). Bu yuzden dosya CI'da kalir.
       # ---------------------------------------------------------------------------
+      # ---------------------------------------------------------------------------
+      # IMPORT KAYNAGI KALKANI - "yesil ama yanlis agac" sonucunu kirmiziya cevirir.
+      #
+      # GECMIS: bu is akisinda bir D:\kasa junction adimi ve pytest icin
+      # working-directory: 'D:\kasa' vardi. Sebebi 33 test dosyasinin sys.path'e sabit
+      # "d:/kasa" eklemesiydi; junction checkout'u o yola baglayarak sorunu ORTUYORDU.
+      # Kalici cozum 2026-08-03'te yapildi: kokler artik __file__'dan turetiliyor,
+      # dolayisiyla junction da ozel calisma dizini de gereksiz.
+      #
+      # NEDEN BU ADIM VAR: sabit yolun asil tehlikesi "dosya bulunamadi" DEGILDI --
+      # sys.path'in BASINA eklenen bir kok yuzunden, baska bir dizinden kosulan takim
+      # bile modulleri O depodan import edip YESIL bir YANLIS-PASS uretebiliyordu
+      # (bu olcum bizzat yapildi ve gorulen sey buydu). Bu adim tam olarak onu olcer:
+      # import edilen modul bu checkout'un icinden mi geliyor? Ucuz, ve regresyonu
+      # sessiz kalmaktan cikarir. Bagimliliklardan SONRA kosar (cell_crypt cryptography ister).
+      # ---------------------------------------------------------------------------
+      - name: 'Import kaynagi bu checkout mu (yanlis-PASS kalkani)'
+        shell: pwsh
+        run: |
+          python -c @'
+          import os, sys, pathlib
+          sys.path.insert(0, os.getcwd())
+          import src.vault.cell_crypt as m
+          ws = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          got = pathlib.Path(m.__file__).resolve()
+          print("workspace :", ws)
+          print("import    :", got)
+          if ws not in got.parents:
+              sys.exit("HATA: moduller bu checkout DISINDAN import edildi -> pytest sonucu bu PR hakkinda DEGILDIR.")
+          print("dogrulandi: import kaynagi = checkout")
+          '@
+
       - name: pytest
         shell: pwsh
-        working-directory: 'D:\kasa'
         run: pytest tests/ -q --ignore=tests/browser --ignore=tests/test_fp_b2_webgl.py --ignore=tests/test_distill_injection.py

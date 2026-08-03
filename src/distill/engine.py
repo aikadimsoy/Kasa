@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import pathlib
 import time
 import re
 from datetime import datetime, timedelta
@@ -7,8 +8,16 @@ import urllib.request
 from ..vault import redact
 from ..vault.redact import CREDENTIAL_DENY  # tek kaynak (dedup); geriye-uyum icin re-export
 
+# Repo root derived from this file's own location, never hard-coded.
+#
+# Turkce not: burada eskiden sabit "d:/kasa/..." yaziliydi -> depo baska bir
+# makineye/dizine klonlandiginda bu yollar YOKTU. Modulun kendi konumundan
+# turetmek (src/distill/engine.py -> parents[2] = depo koku) tasinabilirligi
+# saglar; public yayin ve CI kosucusu icin sart.
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+
 OLLAMA_MODEL = "qwen2.5:7b"  # son care fallback (cozucu de erisilemezse)
-_BROWSER_CONFIG_PATH = "d:/kasa/browser_config.json"  # geriye-uyum: eski testler/araclar bu adi okur
+_BROWSER_CONFIG_PATH = str(_REPO_ROOT / "browser_config.json")  # geriye-uyum: eski testler/araclar bu adi okur
 
 
 def _read_agent_model():
@@ -264,7 +273,7 @@ class DistillEngine:
 
 if __name__ == "__main__":
     # Insert 3 synthetic test events and run the batch process
-    conn = sqlite3.connect('d:/kasa/kasa.db')
+    conn = sqlite3.connect(str(_REPO_ROOT / "kasa.db"))
     cursor = conn.cursor()
     # distilled kolonu yoksa ekle
     try:
@@ -282,6 +291,6 @@ if __name__ == "__main__":
     conn.commit()
     conn.close()
 
-    engine = DistillEngine('d:/kasa/kasa.db', 'http://localhost:11434/api/generate')
+    engine = DistillEngine(str(_REPO_ROOT / "kasa.db"), 'http://localhost:11434/api/generate')
     result = engine.run_batch()
     print(json.dumps(result, indent=2))

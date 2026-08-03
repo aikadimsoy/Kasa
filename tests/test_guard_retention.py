@@ -4,7 +4,12 @@ her iterasyon uretim SINIRLANMALI yoksa arsiv (musfettisin kor noktasi) sinirsiz
 import os
 import sys
 
-sys.path.insert(0, "d:/kasa/_orch/loop")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+sys.path.insert(0, _os.path.join(_KASA_ROOT, "_orch/loop"))
 import guard
 
 

@@ -3,7 +3,10 @@
 import importlib.util
 import os
 
-REPO = "d:/kasa"
+# Turkce not: sabit "d:/kasa" YERINE test dosyasinin kendi konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
+# kosucusunda bu testi kirardi; public yayin icin tasinabilirlik sart.
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GATE_PATH = os.path.join(REPO, "_orch/loop/browser_gate.py")
 
 

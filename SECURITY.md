@@ -45,10 +45,12 @@ place until a fix exists.
 **Please do not** open a public issue, a public pull request, or a public discussion for a
 security-relevant finding before it has been triaged.
 
-**Fallback e-mail contact:** `<SECURITY-CONTACT-TO-BE-FILLED-BY-OWNER>`
-*(Deliberately left as a placeholder — no address is invented here. The repository owner
-fills this in before or at public launch. Until then the GitHub advisory flow is the only
-channel that is known to work.)*
+**There is deliberately no e-mail fallback.** Private advisories keep the report, the
+discussion and the fix in one auditable place, and they do not require the maintainer to
+publish a personal address that would then be permanently indexed. If the Security tab is
+unavailable to you for some reason, open a public issue containing **no technical detail** —
+just "I have a security report and cannot use the advisory flow" — and a private channel
+will be arranged from there.
 
 ### What to put in the report
 
@@ -108,6 +110,11 @@ and in the advisory unless they ask not to be.
   bypasses that get unmasked data to a model or to the UI.
 - The read-only dashboard and its API surface (`src/dashboard/`).
 - The browser extension (`browser_extension/`) and the data path from page to vault.
+- The KASA browser (`src/browser/`) — **but read "Known-unsafe surfaces" first.** That
+  window ships disabled and its bridge exposure is already documented; a report that
+  restates it is a duplicate. A report showing a *working* payload, an impact beyond the
+  methods listed there, or a way to reach the bridge **without** setting
+  `KASA_ENABLE_BROWSER=1`, is very much in scope.
 - Distillation / enrichment: prompt-injection paths that cross from untrusted page text
   into a privileged action (`src/distill/`).
 - Build and packaging scripts to the extent they affect what ships (`build_kasa.ps1`).
@@ -160,6 +167,62 @@ same assumption in its module docstring.
 What KASA does defend against, per that document: other OS accounts on the same machine
 (owner-only ACL + DPAPI key binding), a `kasa.db` copied out to cloud sync, and injected
 page content being treated as instructions.
+
+### Known-unsafe surfaces (shipped disabled)
+
+A surface listed here is **known to be unsafe, is not defended, and does not start unless
+you explicitly ask for it.** It stays in the tree because the measurement and the
+architecture are the point of a research preview — not because it is considered safe.
+
+**The KASA browser (`src/browser/`) — off by default.**
+
+`open_browser()` refuses to start unless `KASA_ENABLE_BROWSER=1` is set
+(`src/browser/browser_window.py`, `browser_enabled()`). The refusal happens before any side
+effect: no proxy environment is applied, no window is created, no bridge is built. That
+ordering is pinned by `tests/test_browser_optin_gate.py`, which carries both a negative
+control (the old vulnerable pattern is detected 3/3) and a positive control (an opted-in run
+does reach window creation, so the gate is not a blanket refusal).
+
+*Why it is disabled.* The window is created with `js_api=` (`browser_window.py`, in
+`open_browser`), which places the pywebview bridge in the **visited page's** JavaScript
+context. The `loaded` handler then injects the toolbar, sidebar and ingest scripts on
+**every** page load with **no origin check**, and the injected ingest script itself calls
+`window.pywebview.api.ingest(...)` from that page. That last fact is the proof rather than
+an inference: the product feature works, therefore the bridge is reachable from page
+context, therefore the page's own scripts can reach it too. There is no isolated world.
+
+Reachable from any visited site, with the gates each method does have noted honestly:
+
+| Method | Gate | Consequence if a page calls it |
+|---|---|---|
+| `set_proxy(enabled, address)` | none | All subsequent browsing is routed through an attacker-chosen proxy |
+| `ingest(url, title, body, cookies)` | none | Arbitrary attacker-authored "memories" written into the vault, which then feed the agent |
+| `adv_unlock(pw)` | no rate limit / lockout | A clean boolean password oracle; PBKDF2 (200k) slows but does not stop grinding |
+| `set_level(level)` | only `paranoid` is gated behind unlock | Privacy tier can be silently *downgraded* |
+| `set_model(name)` | allow-list of installed models | Limited: constrained to models already present |
+
+The individual methods are not carelessly written — `set_model` allow-lists, `set_level`
+gates the aggressive tier behind the owner password, `adv_set_password` requires the
+existing password, `adv_unlock` uses `compare_digest`. The defect is not in any one method.
+**Every one of those gates assumes the caller is the trusted sidebar UI, and the caller can
+be the visited page.**
+
+*Honest limit on this finding.* It is established from code structure and from the ingest
+feature's own operation. **No working exploit was written or run**, and whether a specific
+payload survives WebView2's URL normalisation was not measured. The finding is reported
+at the level it was measured — no higher.
+
+*Why it is not simply fixed.* pywebview's `js_api` is per-window, not per-origin, and
+nothing placed into page context can be hidden from that page — a nonce would be readable
+too. The real fix is what browsers do: move privileged UI out of page context entirely.
+That is an architectural change, and it is on the roadmap rather than in this release.
+
+A separate, smaller defect on the same surface **was** fixed here: the address bar used to
+interpolate the page URL into an HTML string escaping only `"` and not `&`, which is the
+classic double-decoding break-out. The URL is now assigned through the DOM `.value`
+property, so no escaping question arises. Pinned by the same test file.
+
+---
 
 ### Known and documented gaps — please do not file these as new findings
 
@@ -270,9 +333,11 @@ trusting the table.
 
 **Nasıl bildirilir.** Tercih edilen yol: GitHub deposunun **Security** sekmesi →
 **Report a vulnerability** (özel güvenlik danışma kaydı). Güvenlikle ilgili bir bulgu
-triyaj edilmeden **herkese açık issue/PR açmayın**. Yedek e-posta adresi bilinçli olarak
-yer tutucu bırakıldı (`<SECURITY-CONTACT-TO-BE-FILLED-BY-OWNER>`) — uydurma adres
-yazılmadı; depo sahibi doldurur.
+triyaj edilmeden **herkese açık issue/PR açmayın**. **E-posta yedeği bilinçli olarak yok:**
+özel danışma kaydı raporu, tartışmayı ve düzeltmeyi tek ve denetlenebilir bir yerde tutar,
+ayrıca kalıcı olarak indekslenecek kişisel bir adres yayınlamayı gerektirmez. Security
+sekmesine erişemiyorsanız, **hiçbir teknik ayrıntı içermeyen** bir issue açın (yalnızca
+"güvenlik raporum var, danışma akışını kullanamıyorum") — özel kanal oradan kurulur.
 
 **Yanıt süresi beklentisi.** Bu tek geliştiricili bir projedir; aşağıdakiler taahhüt değil,
 iyi niyetli hedeftir: alındı bildirimi 7 gün içinde, ilk triyaj 30 gün içinde, düzeltme için
@@ -288,6 +353,35 @@ açığı tam olarak budur.
 belleğin pagefile'a düşmesi; kapıyı geçmeyen model "jailbreak"leri; üçüncü taraf bağımlılık
 CVE'leri (yukarıya bildirin); parmak izi katmanı B1/B3/B4 (bilinen, park edilmiş);
 DPAPI'nin Windows dışı davranışı.
+
+**Bilinen-güvensiz yüzey: KASA tarayıcısı — bu sürümde VARSAYILAN KAPALI.**
+
+`open_browser()`, `KASA_ENABLE_BROWSER=1` ayarlanmadıkça **başlamaz**; reddetme hiçbir yan
+etki oluşmadan önce gerçekleşir (proxy ortamı uygulanmaz, pencere açılmaz, köprü kurulmaz).
+Sebep ölçüldü: pencere `js_api=` ile açıldığı için pywebview köprüsü **ziyaret edilen
+sayfanın** JS bağlamında bulunuyor, ve `loaded` işleyicisi toolbar/sidebar/ingest
+betiklerini **her yüklemede, origin denetimi olmadan** enjekte ediyor. Kanıt çıkarım değil:
+enjekte edilen ingest betiği o sayfadan `window.pywebview.api.ingest(...)` çağırıyor **ve
+çalışıyor** — demek ki köprü sayfa bağlamından erişilebilir, demek ki sayfanın kendi
+betikleri de erişebilir. Ziyaret edilen her siteye açılan yüzey: `set_proxy` (hiç kapı yok —
+tüm trafik saldırganın proxy'sine), `ingest` (vault'a keyfi "anı" yazma), `adv_unlock`
+(hız sınırsız parola kehaneti), `set_level` (gizlilik kademesini düşürme).
+
+Metotların tek tek kötü yazılmadığını da söylemek gerekir — `set_model` allow-list kullanır,
+`set_level` agresif kademeyi parolaya bağlar, `adv_unlock` `compare_digest` kullanır. Kusur
+tek bir metotta değil: **bu kapıların hepsi çağıranın güvenilir kenar-çubuğu olduğunu
+varsayıyor, çağıran ise ziyaret edilen sayfa olabiliyor.**
+
+**Dürüst sınır:** bulgu kod yapısından ve ingest özelliğinin kendi çalışmasından
+kurulmuştur; **çalışan bir sömürü yazılmadı ve koşulmadı**, WebView2'nin URL
+normalizasyonunun belirli bir yükü geçirip geçirmediği ölçülmedi. Bulgu ölçüldüğü seviyede
+raporlanıyor, bir üstünde değil. Düzgün çözüm mimari: pywebview'da `js_api` pencere başına,
+origin başına değil — sayfa bağlamına konan hiçbir şey (nonce dâhil) sayfadan gizlenemez;
+gerçek tarayıcıların yaptığı gibi ayrıcalıklı arayüzü sayfa bağlamının dışına almak gerekir.
+Bu yol haritasında, bu sürümde değil. Aynı yüzeydeki daha küçük bir kusur ise **düzeltildi**:
+adres çubuğu sayfa URL'sini HTML dizgesine gömerken yalnız `"` kaçırıyordu, `&` değil
+(klasik çift-çözümleme); URL artık DOM `.value` özelliğiyle atanıyor, kaçırma sorusu ortadan
+kalktı. İkisi de `tests/test_browser_optin_gate.py` ile mühürlendi.
 
 **Dürüst tehdit modeli — saklanan bir şey yok.**
 

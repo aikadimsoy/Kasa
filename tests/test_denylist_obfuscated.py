@@ -3,7 +3,12 @@
 yollarindan (profile_write + event_ingest) geciyor mu, at-rest'te sir MASKELI mi,
 mesru veri + git-SHA (FP-guard) KORUNUYOR mu."""
 import sys, json
-sys.path.insert(0, "d:/kasa")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+sys.path.insert(0, _KASA_ROOT)
 import pytest
 from src.vault.database import Vault
 from src.mcp_server.tools import VaultTools

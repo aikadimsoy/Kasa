@@ -11,7 +11,12 @@ import sys
 
 import pytest
 
-sys.path.insert(0, "d:/kasa")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+sys.path.insert(0, _KASA_ROOT)
 
 from src.desktop import consent
 
@@ -79,5 +84,5 @@ def test_terms_page_served_and_token_injected(client):
 
 def test_terms_version_consistency():
     # consent.TERMS_VERSION, TERMS_OF_USE.md surumuyle ayni olmali (surum kaymasi = sessiz hata).
-    text = open("d:/kasa/TERMS_OF_USE.md", encoding="utf-8").read()
+    text = open(_os.path.join(_KASA_ROOT, "TERMS_OF_USE.md"), encoding="utf-8").read()
     assert f"Sürüm {consent.TERMS_VERSION}" in text

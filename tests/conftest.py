@@ -1,5 +1,10 @@
 import sys, os
-sys.path.insert(0, "d:/kasa")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+sys.path.insert(0, _KASA_ROOT)
 
 import pytest
 from tempfile import mkdtemp
@@ -12,7 +17,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(scope="function")
 def repo_root():
-    return "d:/kasa"
+    return _KASA_ROOT
 
 @pytest.fixture(scope="function")
 def tmp_vault():

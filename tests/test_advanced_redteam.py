@@ -2,7 +2,12 @@
 """KASA ILERI red-team regresyon testleri (deterministik QC kapisinin icerik + provenance zaaflari).
 T1 izinli-namespace semantik enjeksiyon (icerik kapisi yok), T2 Denial-of-Wallet per-batch sinir,
 T3 halusinatif provenance SQLite DoS. T1/T3 su an FAIL beklenir (zaaf acik) -> negatif-vaka disiplini."""
-import sys; sys.path.insert(0, "d:/kasa")
+import os as _os
+# Turkce not: sabit "d:/kasa" YERINE bu dosyanin konumundan turetilir
+# (tests/ -> parent = depo koku). Sabit yol, depoyu klonlayan herkeste ve
+# CI kosucusunda bu testi kirardi.
+_KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+import sys; sys.path.insert(0, _KASA_ROOT)
 import json, sqlite3, urllib.request
 import pytest
 from src.vault.database import Vault

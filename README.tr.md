@@ -2,6 +2,34 @@
 
 Windows'ta Ajan Tabanlı Tarama için Egemen, Yerel-Öncelikli bir Hafıza Kasası
 
+> ## ⚠️ v0.1 — Araştırma Önizlemesi / Güvenlik Mimarisi Gösterimi
+>
+> **Bu deneysel bir prototiptir. Üretimde veya hassas veriyle kullanmayın.**
+>
+> Amacı bir mimariyi — yerel yapay zekâ ajanları için izin, şifreleme ve denetim — göstermek
+> ve *ölçmektir*; bitmiş bir ürün olmak değil. Gözden çıkarabileceğiniz veriyle çalıştırın.
+>
+> **Bugün gerçekten doğru olanlar**, her biri bir özelliği iddia etmek yerine dayandığı
+> kanıtı göstererek:
+>
+> | | |
+> |---|---|
+> | Tümüyle yerel çalışır | kasa dosyası, anahtar ve izin kararları makineden hiç çıkmaz |
+> | *Belirli* alanları şifreler | 3 kolon, AES-256-GCM, AAD-bağlı — **veritabanının tamamı değil** |
+> | Araç yetkisini sıradan kodla sınırlar | deterministik aracı; model asla sınır değildir |
+> | Hash-zincirli denetim defteri tutar | kurcalama ve silme tespiti ölçümle PASS |
+> | 233 test geçiyor | 2026-08-03 koşusu, **izole bir kopyada** — yalnız kendi içinden import ederek |
+>
+> **İddia EDİLMEYENLER** — bunlar açık, yazılı, ve bir kısmı ölçülmüş başarısızlıktır:
+> kimlik bağlama (`agent_id` istemci-beyanlı, denetim *atfı* sahtelenebilir), tam at-rest
+> şifreleme, egress kontrolü, bağımsız güvenlik denetimi. KASA tarayıcısı, bilinen bir köprü
+> izolasyon kusuru nedeniyle **kapalı** geliyor. Projenin kendi tezgâhı şu an
+> **yayına hazır değil** kararını kaydediyor.
+>
+> Kendi negatif sonuçlarımızı yayımlarız. Açık bulgular [`SECURITY.md`](SECURITY.md)'de,
+> başarısız ölçümler [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md)'de.
+> Buradan değil, oradan başlayın.
+
 ## Sorun
 
 Bugünkü ajan tabanlı tarayıcılar, kalıcı kullanıcı hafızasını satıcı bulutlarında saklıyor; bu da ciddi gizlilik ve kontrol sorunları doğuruyor. Kullanıcılar tarama verilerine sahip olamıyor ve yapay zekâ ajanlarına izin vermenin yasal sonuçları net biçimde tanımlanmış değil. Bu proje, herhangi bir ajanın izin-aracılı bir MCP (Model Context Protocol) sunucusu üzerinden erişebileceği; yerel-öncelikli, şifreli ve kullanıcıya ait bir hafıza kasası sağlayarak bu eksiklikleri gidermeyi amaçlıyor.
@@ -56,9 +84,33 @@ dizesi), sınırları açıkça yazılmış test-test ayrıntı
     [`SECURITY.md`](SECURITY.md) ve
     [`docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md`](docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md).
     Bu **kapatılmadı**.
+  - *KASA tarayıcısı köprü izolasyonu* — **açık, ve tarayıcının kapalı gelmesinin sebebi.**
+    pywebview `js_api` köprüsü ziyaret edilen sayfanın JS bağlamında bulunuyor ve sayfa
+    betikleri origin denetimi olmadan enjekte ediliyor; dolayısıyla ziyaret edilen her site
+    `window.pywebview.api.*`'a — `set_proxy()` ve `ingest()` dâhil — erişebiliyor.
+    `open_browser()` artık `KASA_ENABLE_BROWSER=1` olmadan başlamıyor ve hiçbir yan etki
+    oluşmadan kapanıyor (`tests/test_browser_optin_gate.py`, negatif ve pozitif kontrolüyle).
+    **Sınır:** bulgu kod yapısından ve ingest özelliğinin kendi çalışmasından kuruldu;
+    **çalışan bir sömürü yazılmadı ve koşulmadı.** Tam yazım: [`SECURITY.md`](SECURITY.md),
+    "Known-unsafe surfaces". Aynı yüzeydeki daha küçük bir kusur *düzeltildi*: adres çubuğu
+    artık URL'yi HTML'e gömmüyor.
   - *Otomatik test→düzelt döngüleri* — sıfır-maliyetli yerel-model döngüsü ve tarayıcı sağlık
     kapıları kontrolleri tekrar tekrar koşar (`_orch/loop/`, `tools/security_bench/`). Bunlar
     regresyon kapsamını artırır; tek başlarına güvenlik kanıtı **değildir**.
+
+### Yol Haritası
+
+Sıralama efora göre değil, **bir sonraki dürüst iddianın önünü neyin tıkadığına** göre. Her
+madde bugün ölçümle açık olan bir boşluğu kapatır; kanıtlar [`SECURITY.md`](SECURITY.md)'de.
+
+| Sürüm | Hedef | Kapattığı |
+|---|---|---|
+| **v0.1** *(bu sürüm)* | Temiz public depo, güvenli örnek yapılandırma, açıkça yazılmış sınırlar | — |
+| **v0.2** | **Doğrulanmış süreç/ajan kimliği** — `agent_id` token'dan çözülür, uyuşmazlık reddedilir | F-IMP; denetim *atfını* anlamlı kılar ve aynı kök nedenden doğan hız-sınırı bypass'ını da kapatır |
+| **v0.3** | **Varsayılan-red egress + capability izinleri** | "egress kontrolü yok" |
+| **v0.3** | **Ayrıcalıklı arayüzü sayfa bağlamının dışına alma** | yukarıdaki tarayıcı köprü izolasyonu kusuru |
+| **v0.4** | Saldırı testleri, frenler ve bütçeler | kırmızı-takım betiklerini kapıya dönüştürür |
+| **v1.0** | Üretim adayı — *bağımsız güvenlik incelemesinden sonra* | "bağımsız denetim yok" |
 
 ## Kurulum ve Çalıştırma
 

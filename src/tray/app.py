@@ -69,8 +69,12 @@ class KasaTrayApp:
 
             def run(self):
                 try:
+                    # Turkce not: sabit 'd:/kasa/kasa.db' YERINE depo kokunden
+                    # turetilir (src/tray/app.py -> parents[2]); repo herhangi
+                    # bir dizine klonlanabilsin diye.
+                    import pathlib as _pl
                     engine = DistillEngine(
-                        db_path='d:/kasa/kasa.db',
+                        db_path=str(_pl.Path(__file__).resolve().parents[2] / "kasa.db"),
                         ollama_url='http://localhost:11434/api/generate'
                     )
                     result = engine.run_batch()
@@ -101,6 +105,26 @@ class KasaTrayApp:
         import subprocess
         import pathlib
         import sys
+
+        # The browser is opt-in. Tell the user here instead of letting the child
+        # process die with a traceback nobody sees.
+        #
+        # Turkce not: alt surec ayri bir process oldugu icin oradaki RuntimeError
+        # kullaniciya HIC gorunmez -- tepsiden tiklar, hicbir sey olmaz, sebebini
+        # ogrenemez. Bu yuzden kapiyi burada da soruyoruz: ayni karar, iki yerde
+        # sorulur ama tek yerde tanimlidir (browser_enabled).
+        from src.browser.browser_window import browser_enabled
+        if not browser_enabled():
+            self.tray_icon.showMessage(
+                "Tarayıcı kapalı",
+                "KASA tarayıcısı bu sürümde varsayılan olarak kapalıdır "
+                "(bilinen izolasyon açığı — bkz. SECURITY.md). "
+                "Açmak için KASA_ENABLE_BROWSER=1 ortam değişkenini ayarlayın.",
+                QSystemTrayIcon.Warning,
+                8000,
+            )
+            return
+
         repo_root = pathlib.Path(__file__).resolve().parents[2]
         python = os.environ.get("KASA_PYTHON") or sys.executable
         env = os.environ.copy()

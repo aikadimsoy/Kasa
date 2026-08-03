@@ -1,6 +1,7 @@
 import webview
 import urllib.request
 import json
+import pathlib
 import threading
 import os
 import time
@@ -156,7 +157,6 @@ _TOOLBAR_JS = r"""
         '<div id="_kasa_addr_box" style="display:flex;flex:1;height:36px;background:var(--kasa-n800);border:1px solid var(--kasa-n700);border-radius:9999px;align-items:center;gap:8px;padding:0 12px;min-width:0;">' +
             '<div id="_kasa_ring" style="flex-shrink:0;display:flex;color:var(--kasa-n300);">' + SVG_WARNING + '</div>' +
             '<input id="_kasa_url" type="text" autocomplete="off" spellcheck="false"' +
-                ' value="' + window.location.href.replace(/"/g, '&quot;') + '"' +
                 ' style="flex:1;background:transparent;color:var(--kasa-n100);border:none;outline:none;font-family:KasaMono,monospace;font-size:14px;min-width:0;"' +
             '/>' +
             '<span id="_kasa_status" style="color:var(--kasa-n500);font-size:11px;flex-shrink:0;">KASA</span>' +
@@ -181,6 +181,14 @@ _TOOLBAR_JS = r"""
         try { window.location.reload(); } catch (e) {}
     });
     if (_urlInp) {
+        // URL'yi HTML olarak DEGIL, DOM ozelligi olarak yaz. Eskiden adres cubugunun
+        // deger niteligi elle kacirilarak HTML dizgesine gomuluyordu; yalniz cift-tirnak
+        // kaciriliyor, & isareti kacirilmiyordu. Sonuc klasik cift-cozumleme acigi: URL
+        // icinde duz metin olarak bir tirnak-varligi gecerse kacirma hic tetiklenmez,
+        // ardindan HTML ayristiricisi onu gercek tirnaga cozer ve nitelikten cikilir.
+        // .value atamasi metni HTML olarak hic ayristirmadigi icin kacirma sorusu
+        // tamamen ortadan kalkar. Ayni deyim asagidaki URL-degisim yoklamasinda da var.
+        _urlInp.value = window.location.href;
         // Enter -> arama/URL tetikle
         _urlInp.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.keyCode === 13) {
@@ -1257,7 +1265,10 @@ class KasaApi:
 
 # Layer #2 — Proxy / IP gizleme (iskelet). WebView2 proxy'yi environment olusmadan
 # ONCE alir; degisiklik yeniden baslatmayla gecerli olur.
-_BROWSER_CONFIG_PATH = "d:/kasa/browser_config.json"
+# Turkce not: sabit "d:/kasa/..." YERINE modulun kendi konumundan turetilir
+# (src/browser/browser_window.py -> parents[2] = depo koku). Sabit yol, depoyu
+# baska bir dizine klonlayan herkeste bu dosyayi bulunamaz yapardi.
+_BROWSER_CONFIG_PATH = str(pathlib.Path(__file__).resolve().parents[2] / "browser_config.json")
 
 
 def _read_browser_config():
@@ -1536,7 +1547,42 @@ def _bootstrap_on_blank(win, real_url, navigate, registered):
         print("[KASA] B1 bootstrap: kayit dispatch edildi (deterministik), navigasyon zincirlenecek.")
 
 
+#: Opt-in switch for the experimental browser. Unset -> the browser refuses to start.
+BROWSER_ENABLE_ENV = "KASA_ENABLE_BROWSER"
+
+_BROWSER_DISABLED_MSG = (
+    "KASA browser is DISABLED by default in this release.\n"
+    "\n"
+    "Reason (measured, see SECURITY.md 'Known-unsafe surfaces'): the pywebview JS API\n"
+    "bridge (js_api=) lives in the *visited page's* JavaScript context, and page scripts\n"
+    "are injected on every load with no origin check. Any site you visit can therefore\n"
+    "call window.pywebview.api.* directly -- including set_proxy() (traffic redirection)\n"
+    "and ingest() (writing arbitrary content into the vault).\n"
+    "\n"
+    "This is a design-level issue, not a typo: pywebview's js_api is per-window, not\n"
+    "per-origin, so nothing placed in page context can be hidden from the page. The fix\n"
+    "requires moving privileged UI out of page context and is tracked on the roadmap.\n"
+    "\n"
+    "To run it anyway (isolated VM / throwaway profile / no real data ONLY):\n"
+    "    set KASA_ENABLE_BROWSER=1\n"
+)
+
+
+def browser_enabled() -> bool:
+    """True only when the operator explicitly opted in via the environment."""
+    return os.environ.get(BROWSER_ENABLE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def open_browser(url: str = "https://lite.duckduckgo.com/lite"):
+    # Fail closed BEFORE any side effect: no proxy env applied, no window, no bridge.
+    #
+    # Turkce not: bu kapi bilerek fonksiyonun ILK satirinda. Asagidaki _apply_proxy_env()
+    # surec ortamini degistirir ve create_window(js_api=...) kopruyu kurar; kapi daha
+    # sonra olsaydi "kapali" durumda bile bu yan etkiler olusurdu. Fail-closed demek,
+    # supheye dusuldugunde ACILMAMAK demektir -- uyari basip devam etmek degil.
+    if not browser_enabled():
+        raise RuntimeError(_BROWSER_DISABLED_MSG)
+
     _hc_url = os.environ.get("KASA_HEALTHCHECK_URL")
     if _hc_url:
         url = _hc_url

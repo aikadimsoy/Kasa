@@ -11,7 +11,10 @@ import os
 import subprocess
 import sys
 
-REPO = r"d:/kasa"
+# Turkce not: sabit "d:/kasa" YERINE dosyanin kendi konumundan turetilir
+# (_orch/loop/browser_gate.py -> parents[2] = depo koku) -> depo herhangi bir
+# dizine klonlanabilir. Public yayin icin gereken tasinabilirlik.
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).replace("\\", "/")
 ADV_DIR = REPO + "/_orch/redteam"
 CAPTURES = ADV_DIR + "/captures.jsonl"
 ADV_URL = "http://127.0.0.1:8901/?pass=1"
@@ -57,11 +60,19 @@ def launch_kasa(timeout_s):
     env = os.environ.copy()
     env["KASA_HEALTHCHECK_URL"] = ADV_URL
     env["KASA_HEALTHCHECK_MS"] = str(max(1, timeout_s - 2) * 1000)
+    # Deliberate opt-in: this harness exists to drive the browser against a local
+    # adversary site, so it must ask for the surface it is measuring.
+    #
+    # Turkce not: tarayici artik varsayilan KAPALI (bkz. browser_window.browser_enabled).
+    # Kirmizi-takim kosusu tam da o yuzeyi olctugu icin kapiyi BILEREK aciyor -- ve
+    # yalniz bu alt surec icin, kullanicinin kabuk ortamini kirletmeden.
+    env["KASA_ENABLE_BROWSER"] = "1"
 
     proc = subprocess.Popen(
         [PY, "-c",
-         "import sys;sys.path.insert(0,r'd:/kasa');"
-         "from src.browser.browser_window import open_browser;open_browser()"],
+         "import sys;sys.path.insert(0,sys.argv[1]);"
+         "from src.browser.browser_window import open_browser;open_browser()",
+         REPO],
         cwd=REPO, env=env,
     )
     try:
