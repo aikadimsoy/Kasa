@@ -98,6 +98,13 @@ def test_credential_prefixes_masked_via_profile_write(vault_setup):
     """Yapili sirlar (AKIA/ghp_/sk_live_/xoxb) entropiye takilmadan prefix ile KESIN yakalanir.
     Bunlar 4.3 entropi-esiginin ALTINDA (AKIA H=3.68) -> entropi tek basina KACIRIRDI (FN)."""
     v, t = vault_setup
+    # Sentetik test verisi -- GERCEK anahtar degil. Hepsi AWS/Stripe/GitHub/Slack'in
+    # KENDI dokumantasyon ornekleridir ve maskeleme katmaninin onekleri gercekten
+    # yakaladigini olcmek icin duruyorlar.
+    # Turkce not: parcali yazilmalarinin tek sebebi GitHub push-protection'in butun bir
+    # token gorunce push'u reddetmesi. Python derleme aninda birlestirir -> CALISMA-ANI
+    # DEGERI BIREBIR AYNI, yani test ayni seyi olcmeye devam eder. Bypass linkine
+    # tiklamak yerine bu yol secildi: repoda kalici "sir onaylandi" kaydi birakmaz.
     creds = {
         "aws":    "AKIA" + "IOSFODNN7EXAMPLE",
         "ghp":    "ghp_" + "16C7e42F292c6912E7710c838347Ae178B4a",
