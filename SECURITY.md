@@ -311,6 +311,23 @@ rather than treated as a fixable defect: no permission model distinguishes a tru
 a false one. Provenance and content-origin marking are the candidate directions and neither
 is installed.
 
+### Before quoting a benchmark number, read its limits
+
+An adversarial audit of `tools/security_bench/` on 2026-08-04 found that the suite was
+producing **false passes**: the bench never set `KASA_ALLOWED_HOSTS`, so the G2 host guard
+rejected every request with HTTP 400 before any authorization code ran — and checks whose
+predicate is `status != 200` reported PASS with the permission broker dormant. Measured, not
+inferred: 3 of 3 representative requests returned 400 under bench conditions. It also found
+checks that cannot fail (`CRYPTO-DPAPI`), checks that inspect code the product does not use
+(`AUTHZ-BIND`), audit checks that model an out-of-scope adversary without the signing key
+production uses, an undetected tail-deletion of the audit chain, and **no check at all** for
+injected page content — the adversary this project is built against.
+
+The suite has been fixed where it was fixable, and after the fixes its verdict word reads
+*release candidate*. **That word is not the project's status.** It means no check in a narrow
+suite currently fails, while finding F-POISON above is open and untested by it. Full account:
+[`docs/SECURITY_BENCH_LIMITS.md`](docs/SECURITY_BENCH_LIMITS.md).
+
 ### What has been measured as holding
 
 Stated so the picture is not one-sided, and each item names its evidence rather than
