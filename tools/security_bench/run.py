@@ -4,6 +4,17 @@ import os as _os
 # (2 ust dizin = depo koku). Sabit yol, depoyu klonlayan herkeste ve CI
 # kosucusunda bu araci calismaz kilardi.
 _KASA_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))
+
+# ===== Host-guard: benchin isteklerinin YETKILENDIRME KODUNA ULASMASI icin sart =====
+# Turkce not (ne/neden): G2 Host-guard (server.py) loopback disi Host'u, herhangi bir
+# yetkilendirme kodu calismadan 400 ile reddeder. TestClient 'Host: testserver' yollar.
+# Bu degisken YALNIZCA tests/conftest.py'de ayarliydi; bench `python -m tools.security_bench`
+# ile kostugundan conftest CALISMAZ -> her istek 400 donerdi. AUTHZ-DENY gibi kontrollerin
+# PASS kosulu `status != 200` oldugu icin 400 de PASS sayilir ve kontrol, olctugunu iddia
+# ettigi kapiya HIC ugramadan yesil yanardi. Yani YANLIS-PASS ureteci. Olculen 2026-08-04:
+# bench kosullarinda 3/3 istek 400 dondu. Bunu ayarlamak dogru olcumu geri getirir;
+# Host-guard'in kendisi ayrica sinanmalidir (bkz. AUTHZ-HOSTGUARD).
+_os.environ.setdefault("KASA_ALLOWED_HOSTS", "testserver")
 import sys
 import os
 import platform
