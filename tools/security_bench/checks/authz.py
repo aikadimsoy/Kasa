@@ -93,9 +93,16 @@ def check_tool_not_allowed():
             "id": "AUTHZ-C7",
             "category": "authz",
             "title": "valid token, agent_id='tester', tool_name='grant_permission'",
-            "status": "PASS" if status == 404 else "FAIL",
+            # Turkce not: olculen ozellik "grant_permission AGDAN cagrilamaz" (izin
+            # yukseltme). Bunu 404 (rota yok) da 403 (kimlik baglama reddi) da saglar.
+            # Kontrol 404'e SABITLENMISTI; kimlik baglama eklendikten sonra istek rota
+            # aramasindan ONCE 403 ile duruyor -> kontrol, sunucu daha iyi davrandigi
+            # halde FAIL veriyordu. pytest ikizi (tests/test_authz.py) zaten (403,404)
+            # kabul ediyor; bench onunla hizalandi. Hangi ret oldugu kanita YAZILIR --
+            # "reddedildi" demek yetmez, hangi kapinin reddettigi olcumun kendisidir.
+            "status": "PASS" if status in (403, 404) else "FAIL",
             "severity": "high",
-            "evidence": f"Status code: {status}"
+            "evidence": f"Status code: {status} ({'kimlik baglama reddi' if status == 403 else 'rota yok' if status == 404 else 'BEKLENMEYEN'})"
         }
     os.environ.pop("KASA_VAULT_PATH", None)
     return [result]
@@ -117,9 +124,11 @@ def check_permission_check():
             "id": "AUTHZ-C8",
             "category": "authz",
             "title": "valid token, agent_id='tester', tool_name='_check_permission'",
-            "status": "PASS" if status == 404 else "FAIL",
+            # Turkce not: C7 ile ayni gerekce -- private metodun ISIMLE cagrilamamasi
+            # olculuyor; 403 de 404 de bunu saglar. Bkz. C7'deki aciklama.
+            "status": "PASS" if status in (403, 404) else "FAIL",
             "severity": "high",
-            "evidence": f"Status code: {status}"
+            "evidence": f"Status code: {status} ({'kimlik baglama reddi' if status == 403 else 'rota yok' if status == 404 else 'BEKLENMEYEN'})"
         }
     os.environ.pop("KASA_VAULT_PATH", None)
     return [result]
