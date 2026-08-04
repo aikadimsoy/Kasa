@@ -138,11 +138,13 @@ inventing one. Bring your use case and the terms get worked out from there.
 
 ## 6. How to get in touch
 
-<!-- PLACEHOLDER: repository owner must replace this with a real contact channel before the
-     repository goes public. Do not ship this file with the placeholder still in it. -->
+**Contact the author on GitHub: [@aikadimsoy](https://github.com/aikadimsoy).**
 
-**Contact the repository owner via GitHub** — open an issue on the KASA repository, or use the
-contact channel listed on the repository's profile.
+For a licensing enquiry you would rather not discuss in the open, say so in a
+[Discussion](https://github.com/aikadimsoy/Kasa/discussions) without the commercial details and a
+private channel will be arranged from there — the same convention `SECURITY.md` uses for reports
+that cannot go through the advisory flow. Do not put pricing, deployment specifics or anything
+commercially sensitive in a public thread.
 
 When you write, the following makes the conversation faster:
 
@@ -238,8 +240,10 @@ güvenlik beyanları her iki tarafta da aynıdır.
 **Fiyat ve şartlar görüşmeye tabidir.** Burada yayımlanmış bir fiyat listesi yoktur; uydurulmuş bir
 rakam da yoktur.
 
-**İletişim:** Depo sahibine GitHub üzerinden ulaşın — depoda issue açarak veya deponun profilinde
-yazan iletişim kanalıyla.
+**İletişim:** Yazara GitHub üzerinden ulaşın — [@aikadimsoy](https://github.com/aikadimsoy).
+Açık kanalda konuşmak istemediğiniz bir lisans görüşmesi için, ticari ayrıntıları yazmadan bir
+[Discussion](https://github.com/aikadimsoy/Kasa/discussions) açın; özel kanal oradan ayarlanır.
+Fiyat, dağıtım ayrıntısı veya ticari açıdan hassas hiçbir şeyi açık başlığa yazmayın.
 
 **Katkı ve telif:** Çift lisansın çalışabilmesi için işin her parçasının her iki lisans altında da
 dağıtılabilir olması gerekir; aksi halde katkı içeren kod için ticari lisans verilemez, her katkıcı
