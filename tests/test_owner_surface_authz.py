@@ -103,6 +103,72 @@ def test_POSITIVE_no_token_still_rejected_on_owner_endpoints(server_client):
     assert resp.status_code in (401, 403), f"beklenen 401/403, geldi {resp.status_code}"
 
 
+# --- F-OWNER-MUTATE + F-OWNER-TERMS + agent-bridge: MUTATION/kontrol yuzeyi ----------
+#
+# Turkce not: yukaridaki pinler owner-OKUMA yuzeyini kapatir. Bagimsiz lab (2026-08-04, v0.2.0
+# duzeltme-oncesi build) OKUMANIN OTESINDE MUTASYON'u da acik gosterdi: dusuk-yetkili gercek
+# token (yazma-reddi ile sub-owner oldugu kanitli) `POST /v1/agent/model` (model DEGISTIR),
+# `POST /v1/terms/accept` (owner onayi FLIP) ve tum ajan-koprusu uclarina 200 aldi. HEAD bunlara
+# require_owner uyguluyor -> asagidaki pinler HEAD'de YESIL olmali (canli lab'daki acik = "once";
+# bu pinler "kapat"in kanitidir). Mutasyon-yarisi okuma-yarisindan daha ciddi: yazma-reddi bir
+# token owner AYARINI (model/terms) degistiremez -- tenancy'den bagimsiz yetki ihlali.
+
+_OWNER_ONLY_MUTATE_OR_BRIDGE = [
+    ("GET", "/v1/dashboard/audit/report", None),
+    ("GET", "/v1/agent/models", None),
+    ("POST", "/v1/agent/model", {"name": "any-model"}),        # F-OWNER-MUTATE
+    ("POST", "/v1/agent/chat", {"message": "selam"}),
+    ("POST", "/v1/agent/race", {"models": ["a", "b"], "message": "selam"}),
+    ("POST", "/v1/terms/accept", {}),                          # F-OWNER-TERMS
+]
+
+
+@pytest.mark.parametrize("method,path,body", _OWNER_ONLY_MUTATE_OR_BRIDGE)
+def test_low_priv_bound_token_cannot_mutate_or_use_bridge(server_client, method, path, body):
+    """A low-privilege bound token must be refused (403) on owner mutation + agent-bridge.
+
+    Measured breach on the independent lab (v0.2.0): HTTP 200 -- `POST /v1/agent/model` returned
+    {"ok":true,"selected":...} and `POST /v1/terms/accept` returned {"accepted":true}. HEAD gates
+    all of these with require_owner, so the low-priv token must get 403 here (auth before body).
+    """
+    headers = _low_priv_headers(server_client)
+    resp = server_client["client"].request(method, path, headers=headers, json=body)
+    assert resp.status_code == 403, (
+        f"F-OWNER-MUTATE/BRIDGE: dusuk-yetkili token {method} {path} ucunu kullandi "
+        f"(HTTP {resp.status_code}); owner mutasyon/kopru yuzeyi kapsam denetlemiyor."
+    )
+
+
+def test_audit_outputs_do_not_leak_bearer_token(server_client):
+    """Audit outputs (report + run) must never contain the raw owner bearer token.
+
+    Turkce not: bagimsiz port-sahibi lab raporu (2026-08-04) audit-cikti maskeleme regresyonu
+    onerdi. Audit/report sistem-bilgisi (python_version vb.) donduruyor; bu pin asil sirrin --
+    ham owner bearer'inin -- audit ciktisina SIZMADIGINI kilitler. (agent_id gibi ATIF bilgisi
+    mesru; yasak olan ham kimlik-materyalidir.)
+    """
+    import importlib
+    srv = importlib.import_module("src.mcp_server.server")
+    h = server_client["headers"]
+    for path in ("/v1/dashboard/audit/report", "/v1/dashboard/audit/run"):
+        r = server_client["client"].get(path, headers=h)
+        assert r.status_code == 200, f"{path} owner icin 200 donmedi: {r.status_code}"
+        assert srv._BEARER_TOKEN not in r.text, f"{path} ham owner bearer token'i sizdirdi"
+
+
+def test_POSITIVE_owner_not_locked_out_of_bridge_and_terms(server_client):
+    """Control: the owner bearer must NOT be 403 on the bridge/terms surface (fix must not brick).
+
+    (agent/models tolerates a down local model service -> 200 with service_up False; terms/accept
+    is a pure owner action -> 200. Neither should ever be 403 for the owner.)
+    """
+    h = server_client["headers"]
+    r_models = server_client["client"].get("/v1/agent/models", headers=h)
+    r_terms = server_client["client"].post("/v1/terms/accept", headers=h, json={})
+    assert r_models.status_code != 403, f"owner agent/models'ten reddedildi: {r_models.status_code}"
+    assert r_terms.status_code != 403, f"owner terms/accept'ten reddedildi: {r_terms.status_code}"
+
+
 # --- POSITIVE controls: the fix must not brick the legitimate owner flow ---------
 #
 # Turkce not: negatif pinler (yukarida) "dusuk-yetkili giremez" der. Ama HER SEYI reddeden

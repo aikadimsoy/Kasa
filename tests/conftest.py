@@ -6,6 +6,11 @@ import os as _os
 _KASA_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 sys.path.insert(0, _KASA_ROOT)
 
+# Turkce not (G2 Host-guard): TestClient varsayilan olarak "Host: testserver" yollar.
+# Sunucudaki host-guard loopback-disi Host'u reddeder -> tum suiti kirardi. Test ortaminda
+# testserver'i acikca allow-list'e ekliyoruz (uretim varsayilani hala yalniz-loopback).
+_os.environ.setdefault("KASA_ALLOWED_HOSTS", "testserver")
+
 import pytest
 from tempfile import mkdtemp
 from shutil import rmtree

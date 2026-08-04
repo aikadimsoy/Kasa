@@ -8,6 +8,7 @@ Her araç çağrısı: izin kontrolü (permissions tablosu) → işlem → audit
 """
 
 import json
+import re
 import time
 import hashlib
 import hmac
@@ -20,6 +21,11 @@ from ..vault import redact
 def _digest(value) -> str:
     """Audit'e ham deger yerine yazilacak deterministik ozet (sir degismez zincire girmez)."""
     return "sha256:" + hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+# Faz-2 (G3/ASI06): karantina bayragi PAYLASILAN modulde -> agent yazimi (bu dosya) ve distill
+# motoru AYNI deterministik kurali kullanir (kapsam butunlugu).
+from ..vault.quarantine import quarantine_reason as _quarantine_reason
 
 
 class VaultTools:
@@ -110,7 +116,7 @@ class VaultTools:
         self.audit_chain.record(self.agent_id, action, {**details, "result": "success", "count": len(data)})
         return result
 
-    def profile_write(self, key: str, value: any, provenance: list) -> dict:
+    def profile_write(self, key: str, value: any, provenance: list, quarantine: bool = None) -> dict:
         """
         Profil veritabanına yeni bir damıtılmış bilgi yazar veya günceller.
 
@@ -118,9 +124,11 @@ class VaultTools:
             key: Yazılacak bilginin anahtarı.
             value: Bilginin değeri (JSON-serileştirilebilir).
             provenance: Bu bilginin hangi olaylardan (event) türetildiğini gösteren ID listesi.
+            quarantine: (Faz-2) None -> deterministik bayrakla otomatik degerlendir; True -> zorla
+                karantina; False -> zorla aktif (release yolu, tekrar bayraklamaya girme).
 
         Returns:
-            İşlem sonucunu belirten bir sözlük.
+            İşlem sonucunu belirten bir sözlük. Karantinaya alindiysa status="quarantined".
         """
         action = "profile_write"
         # L2: audit'e ham `value` YAZILMAZ (tools.py:109 yan-kanal) -> digest. provenance ID'ler, plaintext.
@@ -142,6 +150,18 @@ class VaultTools:
         value, _red_hits = redact.scan(value)
         # L2: value at-rest AES-GCM sifrelenir (AAD = profile|value|key). provenance = event-ID'ler, plaintext.
         enc_value = cell_crypt.encrypt_cell(json.dumps(value), self._key(), cell_crypt.aad_profile(key))
+
+        # Faz-2 (G3/ASI06): karantina degerlendirmesi. Supheli yazim CANLIYA girmez -> ayri
+        # profile_quarantine tablosunda tutulur (tespit + karantina + atif). Sahip serbest birakir.
+        reason = ("forced" if quarantine else None) if quarantine is not None else _quarantine_reason(value)
+        if reason:
+            cursor.execute(
+                "INSERT INTO profile_quarantine (key, value, provenance, agent_id, reason, created_at) VALUES (?,?,?,?,?,?)",
+                (key, enc_value, json.dumps(provenance), self.agent_id, reason, now),
+            )
+            conn.commit()
+            self.audit_chain.record(self.agent_id, action, {**details, "result": "quarantined", "reason": reason})
+            return {"status": "quarantined", "key": key, "reason": reason}
         cursor.execute(
             """INSERT OR REPLACE INTO profile (id, key, value, provenance, supersedes, created_at, updated_at)
                SELECT old.id, ?, ?, ?, ?, COALESCE(old.created_at, ?), ?
@@ -154,6 +174,47 @@ class VaultTools:
 
         self.audit_chain.record(self.agent_id, action, {**details, "result": "success"})
         return result
+
+    def list_quarantined(self) -> dict:
+        """Faz-2: karantinadaki (bekleyen) profil yazimlarini listeler (owner inceleme yuzeyi)."""
+        if not self._check_permission("profile:read"):
+            raise PermissionError(f"Ajan '{self.agent_id}' için karantina okuma izni yok.")
+        cur = self._db().cursor()
+        cur.execute(
+            "SELECT id, key, value, provenance, agent_id, reason, created_at FROM profile_quarantine ORDER BY id")
+        kb = self._key()
+        items = []
+        for r in cur.fetchall():
+            try:
+                val = json.loads(cell_crypt.decrypt_cell(r[2], kb, cell_crypt.aad_profile(r[1])))
+            except Exception:
+                val = None
+            items.append({"id": r[0], "key": r[1], "value": val, "provenance": json.loads(r[3]),
+                          "agent_id": r[4], "reason": r[5], "created_at": r[6]})
+        self.audit_chain.record(self.agent_id, "quarantine_list", {"count": len(items)})
+        return {"status": "success", "count": len(items), "data": items}
+
+    def release_quarantined(self, quarantine_id: int) -> dict:
+        """Faz-2: bir karantina kaydini AKTIF profile tasir (sahibin bilincli onayi).
+
+        admin:grant gerektirir (forget/grant ile ayni owner-katmani). aktife yazarken
+        quarantine=False -> tekrar bayraklanip donguye girmez.
+        """
+        if not self._check_permission("admin:grant"):
+            raise PermissionError(f"Ajan '{self.agent_id}' için karantina serbest bırakma izni yok.")
+        cur = self._db().cursor()
+        cur.execute("SELECT key, value, provenance FROM profile_quarantine WHERE id = ?", (quarantine_id,))
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError(f"Karantina kaydı bulunamadı: {quarantine_id}")
+        key = row[0]
+        val = json.loads(cell_crypt.decrypt_cell(row[1], self._key(), cell_crypt.aad_profile(key)))
+        provenance = json.loads(row[2])
+        self.profile_write(key, val, provenance, quarantine=False)   # zorla aktif
+        cur.execute("DELETE FROM profile_quarantine WHERE id = ?", (quarantine_id,))
+        self._db().commit()
+        self.audit_chain.record(self.agent_id, "quarantine_release", {"id": quarantine_id, "key": key})
+        return {"status": "released", "id": quarantine_id, "key": key}
 
     def forget(self, topic: str) -> dict:
         """

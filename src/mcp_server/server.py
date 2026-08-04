@@ -16,8 +16,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import uvicorn
 from fastapi.staticfiles import StaticFiles
 
@@ -131,6 +132,44 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# --- G2: Host-header guard (DNS-rebinding defense) ---
+# EN: reject any request whose Host is not loopback. A DNS-rebinding page rebinds its own
+# origin to 127.0.0.1 and sends the ATTACKER's Host; validating Host defeats it. This is the
+# server-side twin of the mcp_adapter urlparse loopback guard, and the MCP spec now REQUIRES
+# such protection. Port and IPv6 brackets are stripped before matching; an empty Host
+# (HTTP/1.0) is allowed since rebinding relies on a resolvable hostname. Extra hosts
+# (reverse-proxy / Tailscale) may be opted in via KASA_ALLOWED_HOSTS (comma list, no wildcard).
+# Turkce not: ozel fonksiyon (TrustedHostMiddleware degil) cunku env'i ISTEK BASINA okur
+# -> import-zamani sirasindan bagimsiz; ayrica IPv6/port'u dogru ayiklar. Test istemcisi
+# "testserver" Host'u yollar; conftest onu KASA_ALLOWED_HOSTS'a ekleyerek suiti kirmaz.
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _host_allowed(host_header: str) -> bool:
+    h = (host_header or "").strip()
+    if not h:
+        return True
+    if h.startswith("["):
+        h = h[1:].split("]")[0]          # [::1]:8780 -> ::1
+    elif h.count(":") == 1:
+        h = h.split(":")[0]              # 127.0.0.1:8780 -> 127.0.0.1
+    h = h.lower()
+    if h in _LOOPBACK_HOSTS:
+        return True
+    extra = os.environ.get("KASA_ALLOWED_HOSTS", "")
+    return h in {x.strip().lower() for x in extra.split(",") if x.strip()}
+
+
+@app.middleware("http")
+async def _host_guard(request: Request, call_next):
+    """Runs outermost (added after CORS): reject non-loopback Host before any handler."""
+    if not _host_allowed(request.headers.get("host", "")):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Geçersiz Host başlığı; yalnızca loopback kabul edilir."},
+        )
+    return await call_next(request)
 
 # Bearer token authentication için gerekli olan dependency'yi tanımlayalım
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

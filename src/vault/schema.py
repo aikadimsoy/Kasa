@@ -48,6 +48,22 @@ CREATE_PROFILE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_profile_key ON profile (key);
 """
 
+# Karantina (Faz-2 / G3 / ASI06): scope-gecerli AMA supheli (enjekte gibi) bir profil yazimi
+# CANLIYA girmez; burada TUTULUR -> sahip inceleyip release_quarantined ile serbest birakir.
+# value at-rest AES-GCM sifreli (profile.value ile ayni AAD); agent_id atif, reason ise
+# deterministik bayrak nedeni. Iddia: "onleme" degil "tespit + karantina + atif".
+CREATE_PROFILE_QUARANTINE_TABLE = """
+CREATE TABLE IF NOT EXISTS profile_quarantine (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,        -- AES-GCM encrypted (AAD = profile|value|key)
+    provenance TEXT NOT NULL,   -- JSON array of event IDs (lineage)
+    agent_id TEXT NOT NULL,     -- yazimi deneyen ajan (attribution)
+    reason TEXT NOT NULL,       -- karantina nedeni (deterministik bayrak)
+    created_at REAL NOT NULL
+);
+"""
+
 # İzinler (Permissions): Ajanların hangi kapsamlara erişebileceğini belirler.
 CREATE_PERMISSIONS_TABLE = """
 CREATE TABLE IF NOT EXISTS permissions (
@@ -69,7 +85,8 @@ CREATE TABLE IF NOT EXISTS audit (
     action TEXT NOT NULL, -- e.g., 'profile_read', 'forget'
     details TEXT, -- JSON blob with action parameters and result summary
     previous_hash TEXT NOT NULL, -- SHA-256 of the previous audit entry
-    entry_hash TEXT UNIQUE NOT NULL -- SHA-256 of this entry (timestamp + ... + previous_hash)
+    entry_hash TEXT UNIQUE NOT NULL, -- SHA-256 of this entry (timestamp + ... + previous_hash)
+    signature TEXT -- Ed25519(sign_key, entry_hash) hex; NULL for legacy/unsigned rows (Faz-1)
 );
 """
 
@@ -87,7 +104,8 @@ CREATE TABLE IF NOT EXISTS audit_checkpoint (
     created_at REAL NOT NULL,
     upto_id INTEGER NOT NULL, -- muhurlenen son audit satirinin id'si
     upto_hash TEXT NOT NULL, -- muhurlenen son audit satirinin entry_hash'i
-    entry_count INTEGER NOT NULL -- muhur anindaki kapsanan kayit sayisi
+    entry_count INTEGER NOT NULL, -- muhur anindaki kapsanan kayit sayisi
+    merkle_root TEXT -- SHA-256 Merkle root of covered entry_hashes (Faz-1); NULL for legacy
 );
 """
 
@@ -121,6 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_tokens_hash ON agent_tokens (token_hash);
 ALL_TABLES = [
     CREATE_EVENTS_TABLE,
     CREATE_PROFILE_TABLE,
+    CREATE_PROFILE_QUARANTINE_TABLE,
     CREATE_PERMISSIONS_TABLE,
     CREATE_AUDIT_TABLE,
     CREATE_AUDIT_CHECKPOINT_TABLE,
