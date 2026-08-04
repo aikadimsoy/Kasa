@@ -226,3 +226,8 @@ KASA is **dual-licensed**:
   derivative work under the AGPL. Terms: [`COMMERCIAL.md`](COMMERCIAL.md).
 
 Attribution to the author stays with the project under both options.
+
+---
+
+**KASA** — a sovereign, local-first memory vault for agentic browsing.
+Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/Kasa>
