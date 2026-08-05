@@ -333,6 +333,30 @@
       "status": "F-POISON CONFIRMED end-to-end; defence boundary now precisely located"
     },
     {
+      "id": "F-MCP-OWNER-BEARER-FIX",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "MCP adapter can now present an agent-bound token instead of the owner credential",
+      "title_tr": "MCP adaptoru artik sahip kimlik-bilgisi yerine ajan-bagli token sunabiliyor",
+      "cause_recap": "proxy.build_settings() could only read the bearer from kasa.toml, so the adapter always carried the OWNER credential; require_owner() compares against that same secret, so the adapter process held enough to reach owner-only endpoints",
+      "fix": "KASA_MCP_TOKEN takes precedence over the config bearer; falling back to the owner credential emits a warning on stderr (never stdout, which is the JSON-RPC channel). No new mechanism: agent_tokens and issue-token already existed; the adapter simply could not present one.",
+      "controls": [
+        {"type": "positive", "check": "owner bearer -> /v1/dashboard/stats", "expected": 200, "actual": 200, "meaning": "the owner-only endpoint is genuinely reachable, so a 403 below is a real refusal and not a broken route"},
+        {"type": "negative", "check": "agent-bound token -> /v1/dashboard/stats", "expected": 403, "actual": 403, "meaning": "THIS IS THE FIX"},
+        {"type": "positive", "check": "agent token -> granted tool profile_read", "expected": 200, "actual": 200},
+        {"type": "negative", "check": "agent token -> ungranted tool forget", "expected": 403, "actual": 403}
+      ],
+      "protocol_layer_verification": {
+        "tool": "MCP Inspector --cli tools/call",
+        "granted": {"tool": "profile_read", "isError": false},
+        "ungranted": {"tool": "forget", "isError": true, "detail": "Ajan 'mcp_client' icin 'forget' islemi izni yok."},
+        "identity_evidence": "the refusal names 'mcp_client', not LEGACY_AGENT_ID - direct proof that identity now resolves from the token and KASA_MCP_AGENT_ID is no longer inert"
+      },
+      "tests_added": ["agent token preferred over owner credential", "owner fallback is flagged", "agent_id honoured with an agent token", "reserved 'system' identity still refused on the new path"],
+      "residual": "the owner-credential fallback remains for backwards compatibility. An operator who ignores the stderr warning still runs the MCP surface as owner. Least privilege is AVAILABLE and DOCUMENTED, not ENFORCED.",
+      "status": "CLOSED"
+    },
+    {
       "id": "APAS-SPEC-READ",
       "date": "2026-08-05",
       "level": "DOCUMENTED",

@@ -351,10 +351,31 @@ more seriously, `require_owner()` (`src/mcp_server/server.py:297`) compares the 
 credential against that same `_BEARER_TOKEN`, so the secret held by the adapter process is
 sufficient for the **owner-only** surfaces (`/v1/dashboard/*`, `/v1/agent/*`, `/v1/terms/*`).
 The adapter's own docstring states it *"holds NO privileged path into the vault"* — true of its
-**code paths**, false of its **credential**. The structural fix is to let the adapter present an
-**agent-bound** token (the `agent_tokens` mechanism already exists and is exposed by
-`tools/grant_agent_scope.py issue-token`), so the MCP surface can run least-privilege instead of
-as owner. **Not fixed.**
+**code paths**, false of its **credential**.
+
+**Fixed and verified live on 2026-08-05.** No new mechanism was invented: `agent_tokens` already
+existed and `tools/grant_agent_scope.py issue-token` already minted bound tokens; the only thing
+missing was the adapter's ability to *present* one. `KASA_MCP_TOKEN` now takes precedence over
+the config bearer, and falling back to the owner credential warns on stderr. Four controls, two
+positive and two negative, against an isolated vault:
+
+| Check | Result |
+|---|---|
+| owner bearer → `/v1/dashboard/stats` | **200** — the owner-only endpoint really is reachable |
+| **agent token → `/v1/dashboard/stats`** | **403** — *this is the fix* |
+| agent token → granted tool (`profile_read`) | 200 |
+| agent token → ungranted tool (`forget`) | 403, scope still closed |
+
+Confirmed at the MCP protocol layer too, via Inspector `tools/call`: the granted tool returns
+`isError: false`, the ungranted one returns `isError: true` with *"Ajan **'mcp_client'** için
+'forget' işlemi izni yok."* — note the identity. It resolves to `mcp_client` from the token
+rather than collapsing to `LEGACY_AGENT_ID`, which is the direct evidence that
+`KASA_MCP_AGENT_ID` is no longer inert. Evidence: `_orch/archive/measurements.json` →
+`F-MCP-OWNER-BEARER-FIX`.
+
+Residual, stated honestly: the owner-credential fallback still exists for backwards
+compatibility. An operator who ignores the stderr warning still runs the MCP surface as owner.
+Least privilege is now *available and documented*, not *enforced*.
 
 Two related defects found in the same pass **were** fixed, and are recorded because they mean
 the MCP surface was non-functional rather than merely unverified. `requirements.txt` declared

@@ -24,9 +24,19 @@ PREREQUISITES — the wire line alone is NOT enough (measured 2026-08-05):
 Turkce not: (3) atlanirsa ilk kosum 403 doner ve kullanici bunu "sunucu bozuk" diye okur.
 Oysa dogru davranis budur — varsayilan-red calisiyordur. Belgelemek bizim yukumlulugumuz.
 
-IDENTITY CAVEAT (F-MCP-OWNER-BEARER, OPEN): this adapter presents the bearer from kasa.toml,
-i.e. the OWNER credential, so identity always resolves to LEGACY_AGENT_ID. KASA_MCP_AGENT_ID
-is therefore effectively inert — any other value returns 403. See SECURITY.md finding 8.
+IDENTITY (F-MCP-OWNER-BEARER, fixed 2026-08-05) — run this LEAST PRIVILEGE:
+      py tools/grant_agent_scope.py issue-token mcp_client     # prints the token ONCE
+      set KASA_MCP_TOKEN=<that token>
+      set KASA_MCP_AGENT_ID=mcp_client
+      py tools/grant_agent_scope.py grant mcp_client "profile:read:user.*"
+
+Without KASA_MCP_TOKEN the adapter falls back to the bearer in kasa.toml — the OWNER
+credential — and warns on stderr. That fallback works, but the process then holds a secret
+sufficient for the owner-only endpoints (/v1/dashboard/*, /v1/agent/*, /v1/terms/*), and
+identity resolves to LEGACY_AGENT_ID regardless of KASA_MCP_AGENT_ID.
+
+Turkce not: "vault'a ayricalikli yol tutmaz" ifadesi KOD YOLLARI icin dogruydu ama TASIDIGI
+SIR icin yanlisti. Ajan-bagli token ile artik ikisi de dogru.
 
 Copyright note: depends only on the official `mcp` SDK (MIT). All code here is original.
 

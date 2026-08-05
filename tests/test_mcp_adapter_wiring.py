@@ -49,6 +49,7 @@ def _fresh_main(monkeypatch, cfg_path):
     monkeypatch.setenv("KASA_CONFIG", str(cfg_path))
     monkeypatch.delenv("KASA_SERVER_URL", raising=False)
     monkeypatch.delenv("KASA_MCP_AGENT_ID", raising=False)
+    monkeypatch.delenv("KASA_MCP_TOKEN", raising=False)  # gelistirici kabugundan sizmasin
     sys.modules.pop("src.mcp_adapter.__main__", None)
     return importlib.import_module("src.mcp_adapter.__main__")
 
@@ -121,8 +122,54 @@ def test_no_tool_claims_open_world(tmp_path, monkeypatch):
         assert t.annotations.openWorldHint is False, f"{t.name} claims open-world"
 
 
-# Turkce not (kapsam siniri): bearer cozumu (duz gecis, DPAPI acma, bos token reddi) BILEREK
+# Turkce not (kapsam siniri): bearer COZUMU (duz gecis, DPAPI acma, bos token reddi) BILEREK
 # burada test EDILMEZ. O regresyonlar tests/test_mcp_adapter.py icinde zaten var
 # (test_build_settings_unwraps_dpapi_bearer, test_resolve_bearer_token_*). Ayni seyi iki
-# dosyada tutmak, birini degistirip digerini unutmaya davetiye cikarir. Bu dosyanin isi
-# yalnizca SDK KABLOLAMASI: import yolu, ilan edilen arac yuzeyi, surukleme ve isaretler.
+# dosyada tutmak, birini degistirip digerini unutmaya davetiye cikarir.
+#
+# Asagidakiler farkli bir sey sinar: hangi KIMLIK-BILGISININ secildigi (F-MCP-OWNER-BEARER).
+
+
+def test_agent_token_is_preferred_over_owner_credential(tmp_path, monkeypatch):
+    """F-MCP-OWNER-BEARER: KASA_MCP_TOKEN varsa SAHIP bearer'i KULLANILMAMALI.
+
+    Turkce not: adaptor eskiden sahip kimlik-bilgisini tasimak ZORUNDAYDI; o sir
+    require_owner() kapisina da yetiyordu. Ajan-bagli token verildiginde artik ona hic
+    dokunulmadigini burada sabitliyoruz.
+    """
+    from src.mcp_adapter import proxy
+    monkeypatch.setenv("KASA_CONFIG", str(_write_cfg(tmp_path, "OWNER_SECRET_do_not_use")))
+    monkeypatch.setenv("KASA_MCP_TOKEN", "agent_bound_token_xyz")
+    s = proxy.build_settings()
+    assert s["bearer"] == "agent_bound_token_xyz"
+    assert s["owner_credential"] is False
+    assert "OWNER_SECRET" not in s["bearer"]
+
+
+def test_owner_credential_fallback_is_flagged(tmp_path, monkeypatch):
+    """Sahip bearer'ina dusuldugunde bu SESSIZ olmamali — cagiran taraf bilmeli."""
+    from src.mcp_adapter import proxy
+    monkeypatch.setenv("KASA_CONFIG", str(_write_cfg(tmp_path, "owner_tok")))
+    monkeypatch.delenv("KASA_MCP_TOKEN", raising=False)
+    s = proxy.build_settings()
+    assert s["bearer"] == "owner_tok"
+    assert s["owner_credential"] is True
+
+
+def test_agent_id_is_honoured_with_an_agent_token(tmp_path, monkeypatch):
+    """Ajan-bagli token ile KASA_MCP_AGENT_ID ARTIK anlamli (eskiden pratikte islevsizdi)."""
+    from src.mcp_adapter import proxy
+    monkeypatch.setenv("KASA_CONFIG", str(_write_cfg(tmp_path, "owner_tok")))
+    monkeypatch.setenv("KASA_MCP_TOKEN", "agent_bound_token_xyz")
+    monkeypatch.setenv("KASA_MCP_AGENT_ID", "mcp_client")
+    assert proxy.build_settings()["agent_id"] == "mcp_client"
+
+
+def test_reserved_system_identity_still_refused_with_agent_token(tmp_path, monkeypatch):
+    """Yeni kimlik-bilgisi yolu, rezerve kimlik kapisini ATLAMAMALI."""
+    from src.mcp_adapter import proxy
+    monkeypatch.setenv("KASA_CONFIG", str(_write_cfg(tmp_path, "owner_tok")))
+    monkeypatch.setenv("KASA_MCP_TOKEN", "agent_bound_token_xyz")
+    monkeypatch.setenv("KASA_MCP_AGENT_ID", "system")
+    with pytest.raises(ValueError, match="reserved"):
+        proxy.build_settings()

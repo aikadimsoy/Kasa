@@ -28,6 +28,9 @@ from src.mcp_adapter import proxy
 def _clean_env(monkeypatch):
     monkeypatch.delenv("KASA_SERVER_URL", raising=False)
     monkeypatch.delenv("KASA_MCP_AGENT_ID", raising=False)
+    # KASA_MCP_TOKEN (F-MCP-OWNER-BEARER) sahip bearer'ini GECERSIZ kilar; gelistirici
+    # kabugunda set ise bu dosyadaki bearer testlerini sessizce yaniltirdi.
+    monkeypatch.delenv("KASA_MCP_TOKEN", raising=False)
     yield
 
 
