@@ -109,6 +109,20 @@ CREATE TABLE IF NOT EXISTS audit_checkpoint (
 );
 """
 
+# Kör İndeks (Blind Indexing) tablosu: Şifreli events üzerinde O(1) hızında arama yapabilmek için.
+CREATE_SEARCH_INDEX_TABLE = """
+CREATE TABLE IF NOT EXISTS search_index (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL,
+    word_hash TEXT NOT NULL, -- HMAC(word)
+    FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+"""
+
+CREATE_SEARCH_HASH_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_search_word_hash ON search_index (word_hash);
+"""
+
 # Ajan kimlik bagi (F-IMP kok-neden fix): bir token'i BIR ajan kimligine baglar.
 #
 # SEBEP (olculdu, docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md §F-IMP): eskiden tek bir
@@ -143,6 +157,7 @@ ALL_TABLES = [
     CREATE_PERMISSIONS_TABLE,
     CREATE_AUDIT_TABLE,
     CREATE_AUDIT_CHECKPOINT_TABLE,
+    CREATE_SEARCH_INDEX_TABLE,
     CREATE_AGENT_TOKENS_TABLE,
 ]
 
@@ -150,5 +165,6 @@ ALL_INDEXES = [
     CREATE_EVENTS_INDEX,
     CREATE_PROFILE_INDEX,
     CREATE_AUDIT_INDEX,
+    CREATE_SEARCH_HASH_INDEX,
     CREATE_AGENT_TOKENS_INDEX,
 ]

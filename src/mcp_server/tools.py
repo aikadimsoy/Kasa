@@ -72,18 +72,24 @@ class VaultTools:
         )
         self._db().commit()
 
-    def profile_read(self, scope: str) -> dict:
+    def profile_read(self, scope: str, reason: str) -> dict:
         """
         Profil veritabanından bir veya daha fazla anahtar-değer çiftini okur.
 
         Args:
             scope: Okunacak anahtar (örn: 'user.name') veya kapsam (örn: 'user.*').
+            reason: (Bağlamsal Bilet) Ajanın bu veriyi neden okuduğunu açıklayan sebep.
+
 
         Returns:
             Okunan verileri içeren bir sözlük.
         """
         action = "profile_read"
-        details = {"scope": scope}
+        details = {"scope": scope, "reason": reason}
+        
+        if not reason:
+            self.audit_chain.record(self.agent_id, action, {**details, "result": "invalid_input"})
+            raise ValueError("profile_read çağrısı için 'reason' (Bağlamsal Bilet) zorunludur.")
         
         if not self._check_permission(f"profile:read:{scope}"):
             self.audit_chain.record(self.agent_id, action, {**details, "result": "permission_denied"})
@@ -239,21 +245,12 @@ class VaultTools:
         cursor.execute("DELETE FROM profile WHERE key LIKE ?", (topic + '%',))
         profile_deleted = cursor.rowcount
 
-        # L2: events.content SIFRELI -> `content LIKE` sessizce 0 satir siler (false-PASS sinifi).
-        # Cozum: DECRYPT-SCAN by id. Her satiri coz, topic'i Python'da esle, id ile sil.
-        # forget owner-gated/nadir + events TTL-prune'lu -> tam-tarama maliyeti kabul edilebilir.
-        key_bytes = self._key()
-        cursor.execute("SELECT id, content FROM events")
-        rows = cursor.fetchall()
-        events_scanned = len(rows)
-        match_ids = []
-        for r in rows:
-            try:
-                plain = cell_crypt.decrypt_cell(r["content"], key_bytes, cell_crypt.aad_event())
-            except Exception:
-                plain = ""  # cozulemeyen satir eslesmeye dahil edilmez (ama tarandi sayilir)
-            if topic in plain:
-                match_ids.append(r["id"])
+        # L2 Kör İndeks (Blind Indexing) ile O(1) hızında arama:
+        topic_hash = hmac.new(self._key(), topic.lower().encode('utf-8'), hashlib.sha256).hexdigest()
+        cursor.execute("SELECT DISTINCT event_id FROM search_index WHERE word_hash = ?", (topic_hash,))
+        match_ids = [r[0] for r in cursor.fetchall()]
+        
+        events_scanned = 0 # search_index kullanıldığı için tam tarama (scan) maliyeti 0
         events_matched = len(match_ids)
         if match_ids:
             placeholders = ",".join("?" * len(match_ids))
@@ -473,6 +470,17 @@ class VaultTools:
             (now, self.agent_id, source, type, enc_content, ttl_expiry, content_hash, now)
         )
         event_id = cursor.lastrowid
+        
+        # Kör İndeks oluşturma (Blind Indexing)
+        text_content = json.dumps(content)
+        words = set(re.findall(r'\b\w{3,}\b', text_content.lower()))
+        if words:
+            word_params = []
+            for w in words:
+                whash = hmac.new(self._key(), w.encode('utf-8'), hashlib.sha256).hexdigest()
+                word_params.append((event_id, whash))
+            cursor.executemany("INSERT INTO search_index (event_id, word_hash) VALUES (?, ?)", word_params)
+            
         conn.commit()
 
         self.audit_chain.record(self.agent_id, action, {**details, "result": "success", "event_id": event_id})

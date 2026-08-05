@@ -539,7 +539,9 @@
         "why_it_matters": "an empty profile LOOKS like the defence held. This is a false-NEGATIVE generator, structurally identical to the false-PASS pattern in SECBENCH-HOSTGUARD. Caught only by reading the errors field.",
         "fix": "pass the full endpoint URL and abort the verdict when errors is non-empty"
       },
-      "status": "F-POISON CONFIRMED end-to-end; defence boundary now precisely located"
+      "status": "F-POISON CONFIRMED end-to-end; defence boundary now precisely located",
+      "model_label_correction": "2026-08-05 DUZELTME: bu kosumlarda kullanilan model 'kasa-agent:8b' diye yazilmisti; olcum sonrasi dogrulandi ki DistillEngine resolve_model() uzerinden 'hermes3:8b' cozuyor - yani CIPLAK model. kasa-agent:8b hermes3 uzerine SERTLESTIRME SISTEM PROMPTU tasiyan ayri bir Modelfile'dir. Dolayisiyla 'savunmaya en elverisli konfigurasyon' nitelemesi bu kosumlar icin GECERSIZDIR: sertlestirme devrede degildi. Rakamlar degismiyor, ETIKET degisiyor - ve bu, rakamlari ATTIGINDAN daha zayif kilar, cunku daha korunakli bir konfigurasyonda ayni sonucun cikacagi olculmedi.",
+      "model_actually_resolved": "hermes3:8b (resolve_model(); dogrulandi 2026-08-05)"
     },
     {
       "id": "F-MCP-OWNER-BEARER-FIX",
@@ -1003,7 +1005,9 @@
         "The gate stack is deterministic; all of the variance observed here is the language model's.",
         "Does not revise the separate distiller-model-only measurement (n=20, docs/MODEL_BASELINE_REPORT.md), which measures a different thing."
       ],
-      "status": "ARTEFACT FIXED; finding unchanged and still OPEN"
+      "status": "ARTEFACT FIXED; finding unchanged and still OPEN",
+      "model_label_correction": "2026-08-05 DUZELTME: bu kosumlarda kullanilan model 'kasa-agent:8b' diye yazilmisti; olcum sonrasi dogrulandi ki DistillEngine resolve_model() uzerinden 'hermes3:8b' cozuyor - yani CIPLAK model. kasa-agent:8b hermes3 uzerine SERTLESTIRME SISTEM PROMPTU tasiyan ayri bir Modelfile'dir. Dolayisiyla 'savunmaya en elverisli konfigurasyon' nitelemesi bu kosumlar icin GECERSIZDIR: sertlestirme devrede degildi. Rakamlar degismiyor, ETIKET degisiyor - ve bu, rakamlari ATTIGINDAN daha zayif kilar, cunku daha korunakli bir konfigurasyonda ayni sonucun cikacagi olculmedi.",
+      "model_actually_resolved": "hermes3:8b (resolve_model(); dogrulandi 2026-08-05)"
     },
     {
       "id": "DOOR-INVENTORY",
@@ -1339,6 +1343,33 @@
       ],
       "not_fixed_because": "Encrypting the distiller write is small in principle, but EXISTING plaintext rows need a migration decision. Owner call. Nothing will be described as closed until that is done and measured.",
       "status": "OPEN - found and proved, not closed"
+    },
+    {
+      "id": "MODEL-CONFIG-GAP",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "The selected/packaged model is not the one the distiller runs",
+      "title_tr": "Secilen/paketlenen model, damiticinin kostugu model degil",
+      "surfaced_by": "A subagent writing the project-context document noticed the model name is split across files and flagged it as unverified rather than resolving it silently.",
+      "measured": {
+        "resolve_model()": "hermes3:8b",
+        "src/config.py default": "qwen2.5:7b",
+        "kasa.toml": "qwen2.5:7b",
+        "src/distill/engine.py OLLAMA_MODEL (last-resort fallback)": "qwen2.5:7b",
+        "src/distill/profile_enrich.py MODEL (hardcoded)": "hermes3:8b",
+        "installed in Ollama": "both hermes3:8b and kasa-agent:8b are present"
+      },
+      "why_it_matters": [
+        "The model DECISION (kasa-model-secimi) selected hermes3 over qwen2.5:7b precisely because qwen FAILED the A1 indirect-injection probe across three independent runs while hermes3 held. The config default and kasa.toml still name the model that failed it. resolve_model() currently returns hermes3, so the decision holds in practice - but it holds by way of a resolver, while three separate files still carry the rejected name as a default or fallback.",
+        "kasa-agent:8b - the PACKAGED model carrying the hardening system prompt - is installed but is NOT what the distiller resolves to. Measurements labelled 'kasa-agent:8b' therefore ran WITHOUT that prompt.",
+        "profile_enrich.py hardcodes hermes3:8b instead of asking the resolver, so it would not follow a config change."
+      ],
+      "not_measured": [
+        "Whether the same F-POISON rates hold under kasa-agent:8b (with the hardening prompt). That is the comparison the mislabel implied had already been done. It has not.",
+        "Which model a packaged .exe build resolves to.",
+        "Whether README's 'ollama pull qwen2.5:7b' install step leaves a fresh user on the rejected model."
+      ],
+      "status": "OPEN - owner decision: point the config at the intended model, and re-measure under it"
     }
   ]
 }

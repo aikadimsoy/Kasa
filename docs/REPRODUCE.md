@@ -102,7 +102,7 @@ of lie have now happened in this project.
 | Command | What it gives |
 |---|---|
 | `pytest -q` | 323 passed, 1 xfailed (2026-08-05) |
-| `python tools/security_bench/run.py` | 21 checks — 20 PASS / 0 FAIL / 1 WARN. **Read `docs/SECURITY_BENCH_LIMITS.md` before quoting that.** The word it stamps is *release candidate*; that is the bench's word, not the project's status |
+| `python tools/security_bench/run.py` | 21 checks — **21 PASS / 0 FAIL / 0 WARN** (commit `5a703cd`). **Read `docs/SECURITY_BENCH_LIMITS.md` before quoting that.** The word it stamps is *release candidate*; that is the bench's word, not the project's status, and a fully green suite is the most misleading state this project has been in |
 
 ---
 

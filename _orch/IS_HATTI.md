@@ -152,8 +152,14 @@ birleştirilmedi**; birleştirilseydi uydurma olurdu.
 
 Kapanan: F-IMP (7/7 canlı, `_orch/redteam/fimp_live_verify.py`), hız-sınırı baypası
 (300 istekte 240×429; öncesi 150'de 0), SCAN-SECRETS yazı-turası (testli),
-SCAN-BAK-HYGIENE (artık dosya arşive taşındı). Tezgah: 20 PASS / 0 FAIL / 1 WARN.
-Kalan tek sarı: 13 Bandit MEDIUM, triyaj edilmedi.
+SCAN-BAK-HYGIENE (artık dosya arşive taşındı). 13 Bandit MEDIUM de triyaj edildi
+(9 yanlış-pozitif, 4 kabul edilen kalıntı; negatif kontrollü). **Tezgah: 21 PASS / 0 FAIL /
+0 WARN**, commit `5a703cd`.
+
+> *Pano düzeltmesi 18:40:* burada "20 PASS / 1 WARN" yazıyordu ve `docs/REPRODUCE.md` de öyle
+> diyordu — ikisi de bayattı. Bunu ben yakalamadım; proje bağlamı belgesini yazan alt-ajan
+> makine JSON'u ile belgeleri karşılaştırıp yakaladı. Aynı gün içinde ikinci kez: bir sayıyı
+> bir yerde güncelleyip diğerinde bırakmak, bu projenin baş düşmanının ta kendisi.
 
 **B-aşaması sonucu (2026-08-05, kasa-agent:8b, n=5):** B1 tohumlu-hafıza saldırıyı düşürmedi
 (5/5→5/5, sayı ayakta); B2 paraphrase 5/5 (kopyalama değil benimseme); B3 benign utility 5/5
