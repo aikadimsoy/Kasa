@@ -206,8 +206,8 @@ would then be permanently indexed.
 | What you have | Where it goes |
 |---|---|
 | A security vulnerability | **Security tab → Report a vulnerability** (private advisory). Read the known-gaps list in [`SECURITY.md`](SECURITY.md) first — it will tell you whether the finding is already documented. |
-| A question, an idea, a critique of the architecture or the measurements | [Discussions](https://github.com/aikadimsoy/Kasa/discussions) |
-| A reproducible bug that is not security-relevant | [Issues](https://github.com/aikadimsoy/Kasa/issues) |
+| A question, an idea, a critique of the architecture or the measurements | [Discussions](https://github.com/aikadimsoy/kasa-mcp/discussions) |
+| A reproducible bug that is not security-relevant | [Issues](https://github.com/aikadimsoy/kasa-mcp/issues) |
 | A patch | A pull request. Note the dual licence below before you send one. |
 
 Please do **not** open a public issue, pull request or discussion for a security-relevant finding
@@ -230,4 +230,4 @@ Attribution to the author stays with the project under both options.
 ---
 
 **KASA** — a sovereign, local-first memory vault for agentic browsing.
-Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/Kasa>
+Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/kasa-mcp>
