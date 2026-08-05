@@ -24,7 +24,7 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlparse
 
-from src.config import load_config
+from src.config import load_config, resolve_bearer_token
 
 _TIMEOUT = 30  # saniye; yerel cagri icin bol
 
@@ -53,7 +53,20 @@ def _is_loopback_url(url: str) -> bool:
 def build_settings() -> dict:
     """Resolve bearer/base_url/agent_id from config+env. Raises ValueError on violations."""
     cfg = load_config()
-    bearer = cfg.get("server", {}).get("bearer_token", "")
+    # Bearer'i sunucuyla AYNI cozucuden al (src.config.resolve_bearer_token).
+    # Turkce not (F-MCP-BEARER, canli olculdu 2026-08-05): burada eskiden
+    # `cfg["server"]["bearer_token"]` DOGRUDAN okunuyordu. Token DPAPI ile korunmussa bu
+    # deger duz token DEGIL, "dpapi:" onekli 390 karakterlik SARMAL dizedir; sunucu ise
+    # get_or_create_bearer_token() ile cozulmus 43 karakterlik duz token'i bekler.
+    # Sonuc: adaptorun HER cagrisi HTTP 401 "Gecersiz token" aliyordu -> MCP yuzeyi
+    # Windows'ta (token'in varsayilan olarak DPAPI-korumali uretildigi hal) hic calismiyordu.
+    # Adaptor BILEREK uretmez: sahip kimlik-bilgisi basmak onun isi degil, bu yuzden
+    # cozulemezse hata verir.
+    bearer = resolve_bearer_token(cfg)
+    if not bearer:
+        raise ValueError(
+            "no usable bearer token in config — start the KASA server once to create one, "
+            "or check that kasa.toml belongs to this user/machine (DPAPI unwrap failed)")
     host = cfg.get("server", {}).get("host", "127.0.0.1")
     port = int(cfg.get("server", {}).get("port", 8000))
     # Air-gap: adaptor yalniz loopback'e konusur; config baska sey dese bile zorlanir.
