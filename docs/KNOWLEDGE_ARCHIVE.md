@@ -225,9 +225,22 @@ atlamıyor.
 ### 2.6 Why the test suite stayed green / Test takımı neden yeşil kaldı
 
 **EN.** `tests/test_mcp_adapter.py` imports **only** `src.mcp_adapter.proxy` — never
-`__main__`. Its nine tests cover settings resolution, loopback guards, error mapping and the
+`__main__`. Its **15** tests cover settings resolution, loopback guards, error mapping and the
 grant CLI, and they monkeypatch `urlopen`, so **no test ever speaks to a real server and no
 test ever touches the MCP SDK wiring.** Coverage of the layer that actually speaks MCP: **zero.**
+
+*(Count note, and a correction of the correction. An earlier draft said "nine tests". A first
+correction attributed that to reading off a truncated search — **that explanation was wrong**,
+and is retracted here. Git shows the real cause: commit `e3211ee` added six regression tests to
+this file at 07:47, mid-session, between the moment the figure was read and the moment it was
+re-checked. `9` was accurate when written; `15` is accurate now. The instructive part is not the
+number but the failure mode — **the artefact under measurement changed while it was being
+measured, and the first instinct was to blame the instrument.** A wrong diagnosis of one's own
+error is worse than the error, because it teaches the wrong lesson.)*
+
+*(TR: İlk düzeltme hatanın nedenini yanlış gösteriyordu ve geri alındı. Gerçek neden: `e3211ee`
+commit'i bu dosyaya oturum ortasında altı regresyon testi ekledi. `9` yazıldığı anda doğruydu.
+Asıl ders sayı değil: **ölçülen şey ölçülürken değişti ve ilk refleks aleti suçlamak oldu.**)*
 
 The suite was therefore green while the MCP server could not start, could not authenticate,
 and had never completed a protocol handshake. This is the **same false-PASS pattern** recorded
@@ -241,6 +254,15 @@ kablolamasına dokunmaz.** Gerçekte MCP konuşan katmanın kapsamı: **sıfır.
 Dolayısıyla MCP sunucusu başlayamazken, kimlik doğrulayamazken ve hiç protokol el sıkışması
 tamamlamamışken takım yeşildi. Bu, §4.1'de güvenlik bench'i için kaydedilen **aynı yanlış-GEÇTİ
 kalıbıdır**: adını verdiği kapıdan değil, başka bir kapıdan geçen kontrol.
+
+**Closed / Kapatıldı:** `tests/test_mcp_adapter_wiring.py` — 7 tests covering the SDK import
+path (F-MCP-DEP), the registered tool surface, drift against the server's `PUBLIC_TOOLS`,
+tool descriptions, and DPAPI unwrapping (F-MCP-BEARER). The DPAPI test was **verified to bite**:
+run against the old code path it receives a 370-character wrapped value instead of the
+plaintext, so it fails — a regression test that does not fail against the original bug is
+worthless. Suite after the addition: **318 passed, 1 xfailed (319 collected).**
+
+*Regresyon testi eski koda karşı gerçekten başarısız oluyor; öyle olmasaydı değersizdi.*
 
 ---
 

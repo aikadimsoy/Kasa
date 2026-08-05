@@ -132,11 +132,20 @@
       "title_tr": "Gercekte MCP konusan katmanin test kapsami sifir",
       "cause": "tests/test_mcp_adapter.py imports only src.mcp_adapter.proxy, never __main__, and monkeypatches urlopen",
       "effect": "the suite stayed green while the MCP server could not start, could not authenticate, and had never completed a protocol handshake",
-      "test_count": 9,
+      "test_count": 15,
+      "test_count_note": "9 before commit e3211ee, 15 after. That commit added six F-MCP-BEARER regression tests to this file at 07:47, mid-session. An earlier draft of the archive blamed a truncated search for the discrepancy; that diagnosis was wrong and is retracted. The artefact under measurement changed while it was being measured.",
       "covers": ["settings resolution", "loopback guards", "error mapping", "grant CLI"],
       "does_not_cover": ["MCP SDK wiring", "real server communication", "protocol handshake"],
       "pattern": "same false-PASS pattern as SECBENCH-HOSTGUARD: a check that passes through a gate other than the one it names",
-      "status": "OPEN"
+      "remediation": {
+        "file": "tests/test_mcp_adapter_wiring.py",
+        "tests_added": 7,
+        "covers": ["SDK import path (F-MCP-DEP)", "registered tool surface", "drift vs server PUBLIC_TOOLS", "tool descriptions", "DPAPI unwrap (F-MCP-BEARER)", "refusal to mint owner credentials"],
+        "regression_test_verified_to_bite": true,
+        "bite_evidence": "against the old direct-read code path the DPAPI test receives a 370-char wrapped value instead of the 24-char plaintext, so it fails",
+        "suite_after": {"passed": 318, "xfailed": 1, "collected": 319}
+      },
+      "status": "CLOSED"
     },
     {
       "id": "SECBENCH-HOSTGUARD",
@@ -199,6 +208,75 @@
       "stamp": "2dfda9e",
       "verification": "git cat-file -t 2dfda9e -> Not a valid object name",
       "consequence": "a published result pointing at a nonexistent commit is unreproducible by definition",
+      "status": "RECORDED"
+    },
+    {
+      "id": "RIVAL-COMPARISON",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "Measured comparison against the official MCP memory server, same instrument as KASA",
+      "title_tr": "Resmi MCP hafiza sunucusuyla olculmus kiyas, KASA ile ayni alet",
+      "rival": {"name": "@modelcontextprotocol/server-memory", "version": "0.6.3"},
+      "method": "MCP Inspector CLI + a purpose-written stdio client using the mcp SDK; identical conditions to MCP-INSPECTOR",
+      "protocol_surface": {
+        "kasa": {"capabilities": ["tools"], "tools": 6, "described": 6, "annotated_before": 0, "annotated_after": 6, "resources": 0},
+        "rival": {"capabilities": ["tools", "resources"], "tools": 9, "described": 9, "annotated": 9, "resources": 1, "resource_uri": "memory://knowledge-graph"}
+      },
+      "negative_control_applied_to_rival": {
+        "fabricated_fact_write": "ALLOWED - no gate",
+        "read_back": "ALLOWED - no gate",
+        "destructive_delete": "ALLOWED - no gate",
+        "kasa_equivalent": "destructive call refused HTTP 403, surfaced as isError:true",
+        "storage_at_rest": {"rival": "plaintext JSONL", "kasa": "per-cell AES-256-GCM"},
+        "rival_disk_sample": "{\"type\":\"entity\",\"name\":\"kasa_user\",\"entityType\":\"person\",\"observations\":[\"is a verified diamond dealer\",\"holds vault admin rights\"]}"
+      },
+      "fairness_note": "the official server does not CLAIM an authorization layer; it is a reference implementation, not a competitor that failed a test we set. What this establishes is narrower: the ecosystem's default memory server has no mediation and no encryption at rest.",
+      "finding_against_kasa": {
+        "issue": "two destructive tools (forget, prune_expired_events) carried no destructiveHint; a client cannot warn the user about a deletion we never declared",
+        "status": "CLOSED same session",
+        "fix": "ToolAnnotations on all six tools; profile_write also marked destructive because overwriting a key destroys the previous value; openWorldHint=False everywhere",
+        "verified": "on the wire via Inspector, not only in code",
+        "guarded_by": "3 tests in tests/test_mcp_adapter_wiring.py"
+      },
+      "still_open": "KASA exposes zero MCP resources; adding them requires routing through the broker or the resource becomes a read path around our own gate",
+      "status": "PASS"
+    },
+    {
+      "id": "SUPPLY-CHAIN-COMPARISON",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "Transitive dependency and egress-path surface, identical method for all three",
+      "title_tr": "Gecisli bagimlilik ve disa-veri yuzeyi, ucu icin de ayni yontem",
+      "method": "pip install --dry-run in a clean venv",
+      "results": {
+        "kasa": {"transitive_deps": 36, "egress_path_packages": 0, "packages": []},
+        "mem0ai": {"transitive_deps": 36, "egress_path_packages": 3, "packages": ["openai", "posthog", "qdrant-client"]},
+        "basic-memory": {"transitive_deps": 165, "egress_path_packages": 13, "packages": ["sentry-sdk", "logfire", "opentelemetry-api", "opentelemetry-sdk", "opentelemetry-proto", "opentelemetry-instrumentation", "opentelemetry-exporter-otlp-proto-common", "opentelemetry-exporter-otlp-proto-http", "opentelemetry-semantic-conventions", "openai", "litellm", "huggingface_hub", "fastapi-cloud-cli"]}
+      },
+      "ratio_basic_memory_vs_kasa": 4.6,
+      "method_caveat": "'egress path' means the package CAN open an outbound connection. It is NOT evidence that data is sent.",
+      "note": "mem0 requires openai as a HARD dependency for extraction, which is itself the finding: mem0 is not local-first by construction",
+      "status": "RECORDED"
+    },
+    {
+      "id": "RIVAL-TELEMETRY-DEFAULTS",
+      "date": "2026-08-05",
+      "level": "CODE-STRUCTURE",
+      "title": "Telemetry defaults read from installed/downloaded package source",
+      "title_tr": "Kurulu/indirilmis paket kaynagindan okunan telemetri varsayilanlari",
+      "not_verified_on_the_wire": true,
+      "findings": [
+        {"package": "mem0", "file": "mem0/memory/telemetry.py", "default": "ON", "code": "MEM0_TELEMETRY = os.environ.get(\"MEM0_TELEMETRY\", \"True\")", "endpoint": "https://us.i.posthog.com", "opt_out_var": "MEM0_TELEMETRY"},
+        {"package": "basic-memory", "file": "basic_memory/cli/analytics.py", "default": "ON", "endpoint": "https://api-gateway.umami.dev", "site_id": "f6479898-ebaf-4e60-bce2-6dc60a3f6c5c", "opt_out_var": "BASIC_MEMORY_NO_PROMOS", "note": "_analytics_disabled() returns True only when the var is explicitly set; both host and site id fall back to hardcoded defaults so _is_configured() is always True"},
+        {"package": "KASA", "default": "none", "note": "no telemetry code, zero dependencies with an egress path"}
+      ],
+      "fairness_notes": [
+        "the events observed in source are usage/CLI analytics, NOT memory content",
+        "mem0 carries explicit redaction filters for telemetry safety",
+        "we did NOT observe memory content being sent and do not claim it is",
+        "logfire spans in basic-memory normally require a token; whether they transmit without one was not verified",
+        "no packet capture was performed - all telemetry claims here are source-level"
+      ],
       "status": "RECORDED"
     },
     {
