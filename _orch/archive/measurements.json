@@ -357,6 +357,24 @@
       "status": "CLOSED"
     },
     {
+      "id": "ROUTE-EXISTENCE-ORACLE",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "Status codes leak route existence - measured, and judged negligible for KASA with the reasoning stated",
+      "title_tr": "Durum kodlari rota varligini ele veriyor - olculdu, ve KASA icin onemsiz sayildi, gerekcesi yazili",
+      "prompted_by": "cloister bench-pins a 'constant-time 404 on disclosure endpoint (oracle prevention)' item; we checked whether we have the same exposure",
+      "measurements": {
+        "agent_token": {"existing_owner_route": 403, "nonexistent_same_prefix": 404, "nonexistent_unrelated": 404, "leaks": true},
+        "anonymous": {"existing_owner_route": 401, "nonexistent": 404, "leaks": true},
+        "invalid_token": {"existing_owner_route": 403, "nonexistent": 404, "leaks": true}
+      },
+      "oracle_exists": true,
+      "severity_assessment": "negligible for KASA, and the reasoning is stated so a reviewer can disagree with it: (1) the entire route table is public in this open-source repository, so an attacker learns nothing they could not read; (2) the server binds loopback only and the G2 Host-header guard blocks DNS-rebinding, so reaching it at all requires local access, which is adversary A4 and out of scope by declaration.",
+      "why_not_copying_cloister": "cloister is an edge router where routes can be tenant-specific and therefore secret. Our routes are published. Adopting their constant-time 404 here would be cargo-culting a control whose premise we do not share.",
+      "incidental_observation": "require_owner() returns 403 for an INVALID token as well as for a valid non-owner one. That is not a defect: it declines to tell an attacker whether a guessed token is a real agent token.",
+      "status": "MEASURED - no action"
+    },
+    {
       "id": "APAS-SPEC-READ",
       "date": "2026-08-05",
       "level": "DOCUMENTED",
