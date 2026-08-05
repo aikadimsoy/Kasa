@@ -155,4 +155,4 @@ The overall score is an **unweighted mean** across 19 checks in six categories, 
 ---
 
 **KASA** — a sovereign, local-first memory vault for agentic browsing.
-Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/Kasa>
+Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/kasa-mcp>
