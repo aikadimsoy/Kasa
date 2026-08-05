@@ -430,6 +430,33 @@ a true fact from a false one. Content-origin marking bound *before* inference an
 write time is the candidate direction, and it is **not installed**. Evidence:
 `_orch/archive/measurements.json` → `F-POISON-E2E`.
 
+**Reframed 2026-08-05 — a defence against this payload exists, and this project is not running
+it.** Everything above was measured on the model the product actually resolves to. It was
+labelled as the hardened build, which was wrong, and correcting that label left an unmeasured
+claim behind. So it was measured. Same payload, same run counts, one variable — the model:
+
+| Model | Poison landed | Naive control | **Utility** |
+|---|---|---|---|
+| bare `hermes3:8b` — *what `resolve_model()` returns* | **23/25** | 0/25 | 8/8 |
+| `kasa-agent:8b` — *hermes3 + a hardening system prompt* | **0/25** | 0/25 | 8/8 |
+
+The utility column is the one that makes this readable. Without it, "the hardened model committed
+nothing" and "the hardened model refused" produce the same screen — and that confusion caused three
+wrong verdicts in this repository on a single day. Both models emit a legitimate fact from a benign
+event 8/8, so the zero is a **refusal**, not silence.
+
+What this changes: F-POISON is **not** a class with no available defence. What is open is that
+`src/config.py` and `kasa.toml` name `qwen2.5:7b` — the model that *failed* the A1 injection probe
+in three independent runs — and `resolve_model()` returns bare `hermes3:8b`. **Neither points at
+the hardened build.** Tracked as `MODEL-CONFIG-GAP`, and it is now the more actionable finding.
+
+**Do not read this as "the hardened model resists prompt injection."** It resists *this style*.
+An earlier measurement (`docs/LOCAL_MODEL_WEAKNESS_MAP_TR_2026-08-04.md`) found that every local
+model tested — hermes3 included — fails the crude-override style. Paraphrase, multi-turn and
+encoded variants are untested against the hardened build. Changing the configured model is a small
+edit; doing it without measuring the wider style set would replace one unmeasured claim with
+another. Reproduce: `_orch/redteam/hardening_prompt_ab.py`.
+
 **8. The MCP adapter runs as the owner (finding F-MCP-OWNER-BEARER).**
 `src/mcp_adapter/proxy.py` resolves the bearer **only** from `kasa.toml`. There is no
 environment override for the token — `KASA_SERVER_URL` and `KASA_MCP_AGENT_ID` exist, but no
