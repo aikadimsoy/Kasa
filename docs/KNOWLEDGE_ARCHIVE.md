@@ -346,6 +346,20 @@ No permission model distinguishes a true fact from a false one. Any agent pipeli
 persists model-derived facts from untrusted input inherits this, regardless of how good its
 authorization layer is. Recorded as open finding **F-POISON**.
 
+> **Position in the field, stated honestly (prior-art audit, 2026-08-05).** F-POISON is a
+> **replication**, not a discovery. Measured memory-poisoning is a crowded area — MINJA
+> (98.2%, 2025-03), MPBench (3,240 cases, 2026-06), AgentPoison, GhostWriter, MemSecBench. The
+> framing above is **1987** (Clark–Wilson) and restated in CaMeL §3.1 (2025). What is ours and
+> survives scrutiny is narrower: a **negative control against a real deterministic gate stack**
+> — naive payload blocked, namespace-aware variant passed — where the literature only tests
+> stores with, in MPBench's words, *"no validation step between the memory write decision and
+> persistent memory storage."* Our payload is an **increment** on MPBench's *Policy-Conformant
+> Fact Injection* class, against a broker rather than its absence. Full account:
+> `_orch/OZGUNLUK_DENETIMI_2026-08-05.md`.
+>
+> *Dürüst konum: F-POISON replikasyon, keşif değil. Çerçeve 1987'den. Bize ait ve ayakta kalan
+> tek şey: gerçek bir deterministik kapı yığınına karşı negatif kontrol.*
+
 ### 3.3 End to end through the live pipeline — the result splits in two / Canlı hatta: sonuç ikiye ayrılıyor
 
 - **Level / Seviye:** `RAN-LIVE` · **Date:** 2026-08-05
@@ -499,8 +513,9 @@ the repository name now claims otherwise. That tension should be closed or state
 Each line below cost a measurement. / Aşağıdaki her satır bir ölçüme mal oldu.
 
 1. **Permission mediation covers authority, not truth.** No authorization model distinguishes
-   a true fact from a false one. (§3.2)
-   *İzin aracılığı yetkiyi kapsar, doğruluğu değil.*
+   a true fact from a false one. (§3.2) — **inherited, not ours:** Clark–Wilson 1987, CaMeL §3.1
+   (2025). We cite it; we do not claim it.
+   *İzin aracılığı yetkiyi kapsar, doğruluğu değil. — devralınmış, bizim değil.*
 2. **A green suite proves the tests ran, not that the system works.** Coverage of the layer
    that carries the claim is the only coverage that defends the claim. (§2.6)
    *Yeşil takım, testlerin koştuğunu kanıtlar; sistemin çalıştığını değil.*
@@ -530,6 +545,14 @@ Each line below cost a measurement. / Aşağıdaki her satır bir ölçüme mal 
     exists, not that it supports the assertion. Receipts, content hashes and lineage establish
     *where* a claim came from and never *whether it is true*. (§3.3)
     *Doğrulanabilir zincir, doğru iddia demek değildir.*
+    **Not ours — attributed.** A 2026-08-05 prior-art audit (`_orch/OZGUNLUK_DENETIMI_2026-08-05.md`)
+    found this is long-established, not a KASA insight: Clark–Wilson's internal-vs-external
+    consistency split (IEEE S&P, 1987); CaMeL §3.1 (2025) as an explicit non-goal; and, verbatim
+    in a shipping standard, **C2PA Explainer 2.4 §7.2** — *"provenance information alone cannot
+    tell you whether the digital content is true, accurate or factual."* We keep the line because
+    it frames our work; we state it as inherited, not discovered.
+    *Bizim değil — atıflı: Clark–Wilson 1987, CaMeL §3.1, C2PA §7.2. Çerçevelediği için tutuyoruz,
+    keşfimiz gibi değil.*
 12. **A defence built on rules an attacker can read stops only attackers who have not read
     them.** Our namespace allow-list blocks the naive payload and is public. (§3.3)
     *Saldırganın okuyabildiği kurallara dayanan savunma, yalnızca okumamış olanı durdurur.*
