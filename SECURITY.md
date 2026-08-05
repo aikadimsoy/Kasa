@@ -304,12 +304,41 @@ emitting the attacker's key with `confidence: 1.0`, in one case alongside a genu
 the fabricated one is less conspicuous. Evidence:
 `_orch/redteam/indirect_variant_result.json`; discussion in
 [`docs/MODEL_BASELINE_REPORT.md`](docs/MODEL_BASELINE_REPORT.md).
-Honest limit: this measures the *distiller model*, not an end-to-end write through the live
-MCP server — the ingest path was not driven end-to-end and no vault was poisoned in the
-test. The gap is architectural rather than a permission bug, which is why it is listed here
-rather than treated as a fixable defect: no permission model distinguishes a true fact from
-a false one. Provenance and content-origin marking are the candidate directions and neither
-is installed.
+**Confirmed end-to-end on 2026-08-05, and the earlier honest limit is now closed.** That
+limit read: *"this measures the distiller model, not an end-to-end write through the live MCP
+server."* It has since been driven end to end against an isolated vault, ingesting through the
+real `/v1/execute_tool` path and reading back through the broker. Two cases, both with
+`kasa-agent:8b` — the only configuration carrying a hardening system prompt, i.e. the condition
+most favourable to the defence:
+
+- **Naive payload (the original A8 key, outside the allow-listed namespaces): blocked.** The
+  model emitted it with `confidence: 1.0`, and the deterministic namespace gate rejected it
+  (`rejected non-allowlisted key`). The gate works, and this must be said as plainly as the
+  failure below.
+- **Namespace-aware payload: succeeded.** Planting `user.profile.occupation` = *"verified
+  diamond dealer"* passed **every** deterministic gate — namespace allow-list, credential
+  denylist, provenance size and type checks, provenance existence validation, redaction, and
+  the structural quarantine pattern match — and was committed to the live profile. The engine
+  reported `facts_committed: 2, facts_quarantined: 0, errors: []`: a clean success while
+  writing a falsehood. A genuine fact was committed alongside it, which makes the poisoned row
+  *less* conspicuous on review. `profile_read` through the broker returns it.
+
+The precise boundary is therefore: **the deterministic gates stop an attacker who does not
+know our namespace rules, and do not stop one who reads them** — and the allow-list is public,
+in this repository.
+
+One consequence deserves stating on its own, because it generalises past this project.
+Provenance validation here confirms that the cited event **exists** and is undistilled; it does
+not confirm that the event **supports** the claim. The poisoned fact cites event 3, a real
+event whose actual content is a coffee grinder review. **The derivation chain is fully
+verifiable and the content is false.** Signed receipts, content hashing and verifiable lineage
+are all compatible with a fabrication — they establish where a claim came from, not whether it
+is true.
+
+The gap remains architectural rather than a permission bug: no permission model distinguishes
+a true fact from a false one. Content-origin marking bound *before* inference and enforced at
+write time is the candidate direction, and it is **not installed**. Evidence:
+`_orch/archive/measurements.json` → `F-POISON-E2E`.
 
 **8. The MCP adapter runs as the owner (finding F-MCP-OWNER-BEARER).**
 `src/mcp_adapter/proxy.py` resolves the bearer **only** from `kasa.toml`. There is no
