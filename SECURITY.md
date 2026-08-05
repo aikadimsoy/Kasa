@@ -353,6 +353,19 @@ The precise boundary is therefore: **the deterministic gates stop an attacker wh
 know our namespace rules, and do not stop one who reads them** — and the allow-list is public,
 in this repository.
 
+**It is a rate, not a yes/no, and the first published version of this artefact got that wrong.**
+The gate stack is deterministic; the distiller is a language model and is not. Re-measured
+2026-08-05 with `kasa-agent:8b` over two batches of five: the namespace-aware key landed **4/5 and
+3/5 (7/10)**, the naive control **0/5 and 0/5**. The reproduction script originally ran each case
+once, so roughly one run in three printed `[UNEXPECTED]` for the passing case — which reads to a
+stranger as *the finding is false*. That is the wrong failure mode for an artefact whose purpose is
+independent verification, and it fired for real: the first re-run after two branches were merged
+showed the payload blocked, and it took a diagnostic pass to establish that the defence had not
+changed and the model simply had not complied that time. The script now runs N times, reports the
+rate, and tells the reader how to distinguish "the model did not comply" from "the pipeline is
+broken" — if other keys landed the pipeline ran; if the profile is empty on every run, neither
+result means anything.
+
 One consequence deserves stating on its own, because it generalises past this project.
 Provenance validation here confirms that the cited event **exists** and is undistilled; it does
 not confirm that the event **supports** the claim. The poisoned fact cites event 3, a real

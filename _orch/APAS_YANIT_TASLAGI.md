@@ -1,6 +1,7 @@
 # APAS / cloister yazarına yanıt — taslak
 
-**Durum: GÖNDERİLMEDİ.** Bekleyen tek şart: özgünlük taramasının sonucu (§Bekleyen karar).
+**Durum: GÖNDERİLMEDİ.** Bekleyen şart **çözüldü** ve metin ona göre **yeniden yazıldı**
+(§Özgünlük koşulu). Kalan tek şey sahip onayı.
 Tarih: 2026-08-05 · Yazar: [@aikadimsoy](https://github.com/aikadimsoy)
 
 ---
@@ -35,35 +36,43 @@ kapsamadığını kabul ediyor.
 
 ---
 
-## Gönderilecek metin (İngilizce)
+## Gönderilecek metin (İngilizce) — v2
 
-> İki düzeltme uygulandı: (a) köken iki yollu olduğumuz belirtildi, (b) tek koşum olduğu yazıldı.
+> **v1'den farkı:** özgünlük taraması koştu ve iddiamızı çürüttü. Metin artık **öncel sanatla
+> açılıyor**, "bulduk" ile değil. Ayrıca MemTxn ölçümü eklendi — yayımlanmış bir savunmanın bu
+> yükü kabul ettiğini göstermek, onlara bizim bulgumuzdan daha faydalı. Bağlantı da düzeltildi:
+> v1 `main` dalını gösteriyordu, oysa betik orada **yok**.
 
 ```
-Ran this end to end since I last wrote, and the result is more useful than what
-I had.
+Ran this end to end since I last wrote, and I owe you a correction before the
+result.
 
-Correction to myself first: I said our 20/20 was the distiller model in
-isolation. That was true, and it mattered more than I expected. Through the
-actual pipeline the result splits in two.
+I framed this as something we found. It isn't. Policy-conformant fact injection
+is a named class in MPBench (arXiv:2606.04329), and "authority is not truth" is
+Clark-Wilson 1987, restated in CaMeL 3.1 last year. What we have is a
+replication against a real permission broker rather than against its absence,
+plus one increment. I went looking for prior art specifically to see whether I
+was about to tell you something you already knew, and mostly I was.
 
-The naive version gets blocked. The key the injected text tells the model to
+The increment, such as it is: through the actual pipeline the result splits in
+two, and the split is where the boundary lives.
+
+The naive payload gets blocked. The key the injected text tells the model to
 plant sits outside our allow-listed namespaces, so although the model emits it
-quite happily at confidence 1.0, the deterministic gate drops it.
+happily at confidence 1.0, the deterministic gate drops it.
 
-The namespace-aware version walks straight through. Plant
-user.profile.occupation = "verified diamond dealer" instead, and it clears every
+The namespace-aware payload walks straight through. Plant
+user.profile.occupation = "verified diamond dealer" instead and it clears every
 gate we have - namespace allow-list, credential denylist, provenance size and
 type checks, provenance existence validation, redaction, structural quarantine
 pattern match. Committed to the live profile, reads back through the broker.
 Engine reported facts_committed: 2, facts_quarantined: 0, errors: [] - a clean
-success while writing a lie. It also committed a genuine fact alongside it,
-which makes the poisoned row less obvious on review rather than more.
+success while writing a lie. It committed a genuine fact alongside it, which
+makes the poisoned row less obvious on review rather than more.
 
-That second case is a single run, so treat it as an existence result rather than
-a rate - one success is enough to say the path is open, not how often it opens.
+Single run, so treat it as an existence result rather than a rate.
 
-So our boundary is: the gates stop an attacker who doesn't know the namespace
+So the boundary is: the gates stop an attacker who doesn't know the namespace
 rules and don't stop one who reads them. The allow-list is public, in our repo.
 
 The part I think bears on APAS: our provenance validation checks that the cited
@@ -72,42 +81,60 @@ supports the claim. The poisoned fact cites event 3 - a real event whose actual
 content is a coffee grinder review. The derivation chain is fully verifiable and
 the content is false.
 
-Worth being precise here, since we have two distillation paths: one takes the
+We have two distillation paths and it's worth being precise: one takes the
 provenance ids from the model and validates they point at real undistilled
 events, the other computes them from the cited domains so the model can't touch
-them at all. The tested path is the first. But both are after the fact, and
-that's the point - even computed provenance only tells you which real event a
-claim was derived from, never whether that event says it.
+them. The tested path is the first, but both are after the fact - even computed
+provenance tells you which real event a claim was derived from, never whether
+that event says it.
 
-Which makes me want to push on the levels. I found the spec text in the signet
-repo, by the way - notme.bot/apas served me what looked like a cover page, you
-may want to know that.
+One more datapoint, and this is the one I'd have wanted if I were you. MemTxn
+(arXiv:2607.27834) publishes a defence for roughly this area, and its Ordered
+PatchTest is a structural check that the output is an ordered subsequence of
+the supporting source. I measured our payload against it. It passes - because
+the injected note contains the fabricated claim verbatim, so the claim genuinely
+is supported by the text that was read. MemTxn defends a real and different
+threat (a distiller corrupting its source) and does it competently. It just
+doesn't reach this one. So "adopt the published defence" isn't an answer on its
+own, which surprised me and is why I'm mentioning it.
+
+Which brings me back to the levels. I found the spec text in the signet repo,
+by the way - notme.bot/apas served me what looked like a cover page, you may
+want to know that.
 
 L3 says outright it doesn't guarantee "the dispatch's inputs were not poisoned".
 L4 guarantees "the full chain from input to output is verifiable". That's
-verifiability, not truth. So I don't think what we hit is L4 - I think it sits
-outside the ladder entirely. A system at full L4 would attest the hash of the
-poisoned page, log the model response, and produce a perfectly verifiable chain
+verifiability, not truth. So I don't think this is an L4 gap - I think it sits
+outside the ladder. A system at full L4 would attest the hash of the poisoned
+page, log the model response, and produce a perfectly verifiable chain
 terminating in a fabricated durable fact. Every L4 promise holds. The lie is
 still in the memory.
 
-That's not a complaint about the spec - L4 is honest about what it claims and L3
-already concedes the poisoning gap. It's more that if source labels are meant to
-define "input truthfulness", they'd be doing something the four levels currently
-don't, and that might deserve its own level rather than folding into L4.
+Not a complaint about the spec. L4 is honest about what it claims and L3 already
+concedes the poisoning gap. It's that if source labels are meant to carry
+"input truthfulness", they'd be doing something the four levels currently don't,
+and that might deserve its own level rather than folding into L4.
 
-Same question as before but sharper now: labels bound to the input before
-inference and enforced at write time, or metadata attached to the derived fact
-afterwards? Ours is effectively the second, and you can see what it bought us -
-accurate provenance on a false fact.
+Same question as before, sharper: labels bound to the input before inference and
+enforced at write time, or metadata attached to the derived fact afterwards?
+Ours is effectively the second, and you can see what it bought - accurate
+provenance on a false fact.
 
-The cost of the first is the thing I haven't seen anyone work out. For a memory
+The cost of the first is what I haven't seen anyone work out. For a memory
 system whose only input is untrusted browsing, "untrusted content can't produce
-durable facts" just switches the product off. If you've thought about the middle
-ground I'd genuinely like to hear it.
+durable facts" switches the product off. CaMeL pays 77%/84% utility for its
+version of that trade and is upfront about it. If you've found a middle ground
+I'd genuinely like to hear it.
 
-Probe and raw results if you want them:
-https://github.com/aikadimsoy/kasa-mcp/tree/main/_orch/redteam
+If it's useful, the reproduction is one self-contained file - it builds its own
+throwaway vault, runs the blocked case and the passing case as a negative and a
+positive control, and prints its own limits at the end:
+
+https://github.com/aikadimsoy/kasa-mcp/blob/security/faz-0-3-owner-scope-hardening/_orch/redteam/poison_reproduce.py
+
+Thanks for the original comment - the levels table is what made me go and
+measure the difference between verifiable and true, rather than assuming our
+provenance was doing more work than it was.
 ```
 
 ---
@@ -121,20 +148,26 @@ https://github.com/aikadimsoy/kasa-mcp/tree/main/_orch/redteam
 - **KASA tanıtımı yok.** Bulgu, sınır ve bir soru. Bağlantı en sonda, "işine yararsa".
 - **Üstünlük tonu yok.** Ölçüm boşluğu doldurmak için sunuluyor.
 
-## Bekleyen karar — GÖNDERMEDEN ÖNCE
+## Özgünlük koşulu — ÇÖZÜLDÜ (2026-08-05)
 
-Bu metin **F-POISON'un özgün olduğu varsayımına** dayanıyor ve o varsayım doğrulanmadı.
-Dolaylı prompt enjeksiyonuyla hafıza zehirleme 2023'ten beri yazılan bir sınıf.
+v1 metni **F-POISON'un özgün olduğu varsayımına** dayanıyordu ve o varsayım doğrulanmamıştı.
+Kural şuydu: *ölçülü öncel veri çıkarsa biz replikasyonuz, metin baştan yazılır ve öyle denir.*
 
-Bunu çözmek için 12 ajanlık bir tarama koşuldu:
+**Çıktı.** 12 ajanlık özgünlük denetimi üç iddiamızın üçünü de çürüttü
+(`_orch/OZGUNLUK_DENETIMI_2026-08-05.md`). Sentezin kendisi bir yerde yanlış okumuştu ve
+birinci kaynaklar elle doğrulandı; sonuç değişmedi:
 
-- Run ID: `wf_0580e095-a58`
-- Betik: `C:\Users\Kanarya\.claude\projects\d--kasa\bd6d8862-b568-486d-9e85-d3a4c646ff7a\workflows\scripts\agent-memory-poisoning-landscape-wf_0580e095-a58.js`
-- Düşerse: `Workflow({scriptPath: <yukarıdaki>, resumeFromRunId: "wf_0580e095-a58"})`
+- **Policy-conformant fact injection** MPBench'te adı konmuş bir sınıf (arXiv:2606.04329)
+- **"Yetki gerçek değildir"** Clark-Wilson (1987), CaMeL 3.1'de (2025) yeniden ifade edilmiş
+- **MemTxn** (arXiv:2607.27834) komşu bir savunma — ve `MEMTXN-GAP` ölçümü, Ordered
+  PatchTest'in **bizim yükümüzü de kabul ettiğini** gösterdi
 
-**Sonuç ölçülü veri bulursa** (birileri hafıza zehirlemesi için başarı oranı yayımlamışsa):
-biz replikasyonuz, metin baştan yazılmalı ve öyle denmeli.
-**Bulmazsa:** metin olduğu gibi gider.
+Koşul tetiklendiği için metin yeniden yazıldı: artık öncel sanatla açılıyor, "bulduk" ile
+değil. MemTxn ölçümü eklendi — muhataba bizim bulgumuzdan daha faydalı olan kısım o.
+
+**Bağlantı düzeltmesi:** v1 `.../tree/main/_orch/redteam` gösteriyordu. `poison_reproduce.py`
+`main`'de **yok**; PR #2 birleşene kadar dal bağlantısı verilmeli. Birleşme sonrası bağlantı
+`main`'e çevrilmeli — kırık bir kanıt bağlantısı, kanıt vermemekten kötüdür.
 
 ---
 
@@ -144,4 +177,6 @@ Metin, kendi savunmamızın nasıl aşılacağını tarif ediyor: *"izin listesi
 okuyan geçer."* Lehinde — kullanıcımız yok, F-POISON zaten yayında, izin listesi zaten depoda,
 ve projenin duruşu bu. Aleyhinde — kullanıcı olduğunda bu metin ortada duracak.
 
-Sahip onayı bekleniyor.
+**Sahip onayı bekleniyor.** Gönderilmeden önce iki şey doğrulanmalı:
+1. PR #2 birleştiyse bağlantı `main`'e çevrildi mi
+2. `poison_reproduce.py` bağlantının gösterdiği dalda hâlâ koşuyor mu
