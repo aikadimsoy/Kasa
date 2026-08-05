@@ -18,13 +18,16 @@ Windows'ta Ajan Tabanlı Tarama için Egemen, Yerel-Öncelikli bir Hafıza Kasas
 > | *Belirli* alanları şifreler | 3 kolon, AES-256-GCM, AAD-bağlı — **veritabanının tamamı değil** |
 > | Araç yetkisini sıradan kodla sınırlar | deterministik aracı; model asla sınır değildir |
 > | Hash-zincirli denetim defteri tutar | kurcalama ve silme tespiti ölçümle PASS |
-> | 233 test geçiyor | 2026-08-03 koşusu, **izole bir kopyada** — yalnız kendi içinden import ederek |
+> | Ajan kimliğini token'a bağlar | gerçek sunucuya karşı 7/7 kontrol, pozitif **ve** negatif — `_orch/redteam/fimp_live_verify.py` |
+> | 323 test geçiyor | 2026-08-05 koşusu (+1 xfail), **izole bir kopyada** — yalnız kendi içinden import ederek |
 >
 > **İddia EDİLMEYENLER** — bunlar açık, yazılı, ve bir kısmı ölçülmüş başarısızlıktır:
-> kimlik bağlama (`agent_id` istemci-beyanlı, denetim *atfı* sahtelenebilir), tam at-rest
-> şifreleme, egress kontrolü, bağımsız güvenlik denetimi. KASA tarayıcısı, bilinen bir köprü
-> izolasyon kusuru nedeniyle **kapalı** geliyor. Projenin kendi tezgâhı şu an
-> **yayına hazır değil** kararını kaydediyor.
+> tam at-rest şifreleme, egress kontrolü, bağımsız güvenlik denetimi. Ağdan gelen bir çağıran
+> artık denetim *atfını* sahteleyemez (yukarı bkz.), ama **doğru** bir atıf, atfedilen iddiayı
+> doğru yapmaz — bkz. F-POISON bulgusu. KASA tarayıcısı, bilinen bir köprü izolasyon kusuru
+> nedeniyle **kapalı** geliyor. Projenin kendi tezgâhı artık *yayın-adayı* damgası basıyor —
+> **bu kelime tezgâhın, projenin değil**: dar bir takımda hiçbir kontrolün kalmadığı anlamına
+> gelir, ve o takımda KASA'nın karşısına kurulduğu düşmanı ölçen tek bir kontrol yoktur.
 >
 > Kendi negatif sonuçlarımızı yayımlarız. Açık bulgular [`SECURITY.md`](SECURITY.md)'de,
 > başarısız ölçümler [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md)'de.
@@ -79,11 +82,19 @@ dizesi), sınırları açıkça yazılmış test-test ayrıntı
   - *MCP yetkilendirme* — izin-listesi (`PUBLIC_TOOLS`), rezerve-ajan bloğu ve kapsam başına
     varsayılan-red kontrolleri ölçümlerini geçiyor (`AUTHZ-*` kalemleri:
     [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md); `tests/test_agent_gate.py`).
-    **Hâlâ açık:** `agent_id` istemci-beyanlıdır; token sahibi başka bir ayrıcalıklı ajan kimliğini
-    taklit edebilir ve denetim atfı sahtelenebilir — F-IMP bulgusu için bkz.
-    [`SECURITY.md`](SECURITY.md) ve
-    [`docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md`](docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md).
-    Bu **kapatılmadı**.
+    **Kapatıldı (F-IMP bulgusu).** `agent_id` eskiden gövdeden doğrulanmadan geliyordu; token
+    sahibi başka bir ajanın kimliğine bürünebiliyor ve denetim atfı sahtelenebiliyordu. Kimlik
+    artık token'dan çözülüyor; gövdedeki beyan yalnızca bir iddiadır ve çelişirse reddedilir.
+    2026-08-05'te **gerçek** bir sunucuya karşı ölçüldü, 7/7 kontrol — ve önemli olan ikisinin
+    birlikte olması: ölçülmüş saldırı (sahip token'ı `browser` kimliğini beyan ediyor → eskiden
+    200, şimdi **403**) *ve* kapının kör bir ret olmadığını gösteren pozitif kontrol (bağlı token
+    kendisi olarak gerçek bir yazmayı tamamlıyor → **200**). Aynı kök nedenden doğan hız-sınırı
+    bypass'ı da onunla gitti: dönen kimlikle 300 istek artık **240 adet HTTP 429** üretiyor;
+    eskiden 150 istek **sıfır** üretiyordu. Kanıt: `_orch/redteam/fimp_live_verify.py`,
+    `_orch/redteam/fimp_live_result.json`, `tests/test_identity_binding.py` (15 test).
+    **Sınır:** kimlik bir *token*'a bağlıdır; gücü token gizliliği kadardır — vault'u okuyabilen
+    aynı-OS saldırganı token üretebilir ve o düşman sınıfı tasarımla kapsam dışıdır. Ayrıca doğru
+    bir atıf, atfedilen iddiayı doğru yapmaz (F-POISON).
   - *KASA tarayıcısı köprü izolasyonu* — **açık, ve tarayıcının kapalı gelmesinin sebebi.**
     pywebview `js_api` köprüsü ziyaret edilen sayfanın JS bağlamında bulunuyor ve sayfa
     betikleri origin denetimi olmadan enjekte ediliyor; dolayısıyla ziyaret edilen her site
@@ -106,7 +117,7 @@ madde bugün ölçümle açık olan bir boşluğu kapatır; kanıtlar [`SECURITY
 | Sürüm | Hedef | Kapattığı |
 |---|---|---|
 | **v0.1** *(bu sürüm)* | Temiz public depo, güvenli örnek yapılandırma, açıkça yazılmış sınırlar | — |
-| **v0.2** | **Doğrulanmış süreç/ajan kimliği** — `agent_id` token'dan çözülür, uyuşmazlık reddedilir | F-IMP; denetim *atfını* anlamlı kılar ve aynı kök nedenden doğan hız-sınırı bypass'ını da kapatır |
+| **v0.2** ✅ *(bitti, 2026-08-05 ölçüldü)* | **Doğrulanmış ajan kimliği** — `agent_id` token'dan çözülür, uyuşmazlık reddedilir | F-IMP; denetim *atfını* anlamlı kılar ve aynı kök nedenden doğan hız-sınırı bypass'ını da kapatır. 7/7 canlı kontrol: `_orch/redteam/fimp_live_verify.py`. **Süreç** kimliği (isimli-boru üzerinden OS düzeyi) hâlâ bir fizibilite denemesi, kurulmuş değil |
 | **v0.3** | **Varsayılan-red egress + capability izinleri** | "egress kontrolü yok" |
 | **v0.3** | **Ayrıcalıklı arayüzü sayfa bağlamının dışına alma** | yukarıdaki tarayıcı köprü izolasyonu kusuru |
 | **v0.4** | Saldırı testleri, frenler ve bütçeler | kırmızı-takım betiklerini kapıya dönüştürür |
@@ -168,22 +179,33 @@ pytest -q
 
 ## Proje Durumu
 
-**Yayına hazır değil — ve bunu projenin kendisi söylüyor.** Güncel tezgah damgası
-**"YAYINA HAZIR DEĞİL"** diyor: 21 kalemde **18 PASS · 1 FAIL · 2 WARN**
-(`docs/SECURITY_BENCHMARK.md`, commit `2dfda9e`). Evin kuralı *ölçülene kadar mühürlenmez*;
-bu yüzden "sertleştirilmiş", "kurumsal düzey" veya "üretime hazır" gibi etiketler burada
-kullanılmaz — `docs/UI_UX_STANDARD.md` §2.6 bunları ampirik olarak ölçülene kadar yasaklar.
+**Hâlâ yayına hazır değil — ama sebebi artık kalan bir kontrol değil.** Tezgah artık 21 kalemde
+**20 PASS · 0 FAIL · 1 WARN** kaydediyor (`docs/SECURITY_BENCHMARK.md`, commit `fc40b10`,
+2026-08-05) ve *yayın-adayı* damgası basıyor. **Bu kelime tezgâhın, projenin değil.** Anlamı şu:
+dar bir takımda hiçbir kontrol kalmıyor — oysa aşağıdaki F-POISON bulgusu açık ve o takımda
+KASA'nın karşısına kurulduğu düşmanı ölçen **tek bir kontrol yok**. Tezgahtan bir sayı
+alıntılamadan önce [`docs/SECURITY_BENCH_LIMITS.md`](docs/SECURITY_BENCH_LIMITS.md) okunmalı.
+Evin kuralı *ölçülene kadar mühürlenmez*; bu yüzden "sertleştirilmiş", "kurumsal düzey" veya
+"üretime hazır" gibi etiketler burada kullanılmaz — `docs/UI_UX_STANDARD.md` §2.6 bunları ampirik
+olarak ölçülene kadar yasaklar.
 
 - **Uygulanan ve yeşil ölçülen:** MVP-0 güvenlik çekirdeği — kasa + MCP sunucusu + aracılı izinler
   + damıtma + denetim hash-zinciri. 7 `AUTHZ-*` kaleminin tamamı PASS (C5/C7/C8 ve `127.0.0.1`
   bağlanma denetimi dahil), 3 `AUDIT-*` zincir/kurcalama kalemi PASS, 5 `CRYPTO-*` kalemi PASS,
   2 `FUZZ-*` kalemi PASS, bağımlılık denetimi 0 açıklı bağımlılık raporluyor.
-- **Kırmızı / sarı ölçülen:** `SCAN-SECRETS` **FAIL** — bearer token `kasa.toml` içinde düz metin
-  duruyor; sahip-özel ACL uygulandı, rotasyon ve DPAPI-wrap hâlâ bekliyor. `SCAN-BANDIT` WARN
-  (13 orta bulgu, triyaj edilmedi) ve `SCAN-BAK-HYGIENE` WARN.
+- **Sarı ölçülen:** `SCAN-BANDIT` WARN — 13 orta bulgu, hâlâ triyaj edilmedi. Kalan sarı listesi
+  bundan ibaret; `SCAN-SECRETS` ve `SCAN-BAK-HYGIENE` artık geçiyor.
+- **O takımdaki bir sayı yazı-turaydı ve bunu açıkça söylemek gerekiyor.** `SCAN-SECRETS`,
+  tezgâhın *kendi* bir önceki raporunu tarıyor; o raporun `config_hash` parmak izi yapılandırma
+  her değiştiğinde değişiyor. 2026-08-05'te ölçüldü: kod ve depo birebir aynıyken yalnızca bu
+  değer `f8b97a921348` → `7ec93e4833a5` olduğunda hüküm **1 FAIL** → **0 FAIL**'e döndü; biri
+  entropi eşiğini geçiyor, öteki geçmiyor. Artık deterministik olarak sabitlendi ve iki yönü
+  birden tutan bir test var (`tests/test_secret_scan_allowlist.py`). Rengi rastgele bir parmak
+  izine bağlı olan yeşil bir kontrol zaten ölçüm değildi.
 - **Adı konmuş açık boşluklar**, ölçümü `docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` içinde:
-  (a) `agent_id` istemci beyanlıdır ve doğrulanmaz; bu yüzden hız sınırı baypas edilebiliyor ve
-  **denetim atfı sahtelenebilir** (§4.1); (b) **çıkış (egress) ne kısıtlanıyor ne ölçülüyor** —
+  (a) *2026-08-05'te kapatıldı* — kimlik artık token'a bağlı ve aynı kök nedenden doğan
+  hız-sınırı baypası da onunla gitti (§4.1 geçersizleşti; kanıt
+  `_orch/redteam/fimp_live_verify.py`); (b) **çıkış (egress) ne kısıtlanıyor ne ölçülüyor** —
   `docs/GUVENLIK_CIKIS_PLANI.md` planı kurulmadı (§4.4); (c) at-rest şifreleme **üç kolonu kapsayan
   hücre bazlı** şifrelemedir, tam-veritabanı değil — metadata kolonları düz metin kalır (§1 ve
   `docs/adr/0003-at-rest-sifreleme-boslugu.md`).

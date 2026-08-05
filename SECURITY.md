@@ -230,30 +230,54 @@ These are already written down. A report that adds a **new exploitation path**, 
 impact**, or a **working bypass of a stated mitigation** for any of them is very welcome —
 a report that restates them is a duplicate.
 
-**1. `agent_id` is client-asserted (finding F-IMP).**
-The agent identity arrives in the request body and is not bound to the token. Only
-`"system"` is reserved (`src/mcp_server/server.py:63`), while `browser` is auto-granted
-`events:write` at startup (`src/mcp_server/server.py:81-84`). Measured consequence: a
-holder of a valid token can claim `agent_id="browser"` and inherit that write permission —
-`event_ingest` returned HTTP 200 on an isolated server. Other targets (profile read,
-`forget`, audit read) held at 403/404 under sustained attempts. Details and evidence:
+**1. `agent_id` was client-asserted (finding F-IMP) — CLOSED 2026-08-05.**
+The agent identity used to arrive in the request body and was never bound to the token. Only
+`"system"` was reserved, while `browser` is auto-granted `events:write` at startup
+(`src/mcp_server/server.py:81-84`). Measured consequence: a holder of a valid token could claim
+`agent_id="browser"` and inherit that write permission — `event_ingest` returned HTTP 200 on an
+isolated server. Details of the original finding:
 [`docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md`](docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md)
-§F-IMP; residual entry in `docs/THREAT_MODEL.md`.
-The planned fix is identity binding (resolve `agent_id` from the token, reject mismatches);
-it has not been installed. A feasibility spike for OS-level process identity over a named
-pipe succeeded (`_orch/redteam/named_pipe_identity_spike.py`), but the v1-or-v2 decision
-is the owner's and is open.
+§F-IMP.
 
-**2. Rate limiting can be bypassed by rotating `agent_id` (same root cause).**
-Buckets are keyed on the asserted identity
-(`src/mcp_server/server.py:152`, `src/mcp_server/server.py:206`). Measured: 150 requests
-with a fixed identity produced 90 × HTTP 429; 150 requests with a rotating identity
-produced **zero**, and 300 rotating requests wrote 300 permanent rows to the audit chain
-(`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` §4.1). The related unbounded-bucket-growth
-issue *was* closed and has a test (`tests/test_ratelimit_eviction.py`); the bypass itself
-has not been.
-Consequence worth stating plainly: the audit chain shows that *a record was not altered*.
-Until identity is bound, it does **not** establish *which agent produced it*.
+Identity is now resolved from the token (`resolve_agent`, `src/mcp_server/server.py:240`) against
+the `agent_tokens` table; the body claim is only a claim, and a mismatch is refused with 403
+(`_bound_identity`, `src/mcp_server/server.py:309`). The legacy shared token is not a hole — it is
+pinned to one fixed identity rather than being able to become any identity.
+
+**Verified live, and deliberately not only in the test suite.** `tests/test_identity_binding.py`
+passes 15/15, but this project has a receipt for why that is not sufficient on its own: an earlier
+version of that suite went green while the *positive* side of the gate was completely broken —
+against real uvicorn every bound token got HTTP 401, and the test only asserted that a refusal
+message was absent, which 401 also satisfies. So the fix was re-measured against a **real** server:
+7/7, `_orch/redteam/fimp_live_verify.py`, raw result in `_orch/redteam/fimp_live_result.json`.
+
+| Control | Expected | Got |
+|---|---|---|
+| owner token claiming `agent_id="browser"` — *the measured attack, previously 200* | 403 | **403** |
+| bound token claiming a different identity | 403 | **403** |
+| unknown token (auth failure must stay distinguishable from identity failure) | 401 | **401** |
+| revoked bound token | 401 | **401** |
+| **bound token acting as itself, completing a real write** *(positive control)* | 200 | **200** |
+| **bound token with no body claim at all** *(positive control)* | 200 | **200** |
+
+**Limits, stated rather than implied.** Identity is bound to a *token*, so it is exactly as strong
+as token secrecy and issuance: a same-OS attacker who can read the vault file can mint one, and
+that adversary class is out of scope by design (`docs/THREAT_MODEL.md`). What is closed is that a
+**network caller** can forge attribution. What is *not* closed is truth — a correctly attributed
+write can still carry a fabricated claim, which is finding F-POISON below. OS-level *process*
+identity over a named pipe remains a successful feasibility spike
+(`_orch/redteam/named_pipe_identity_spike.py`), not a build.
+
+**2. Rate limiting bypass by rotating `agent_id` (same root cause) — CLOSED with it.**
+Buckets used to be keyed on the *asserted* identity, so rotating it produced a fresh bucket every
+time. Measured before: 150 requests with a fixed identity produced 90 × HTTP 429; 150 requests with
+a rotating identity produced **zero**, and 300 rotating requests wrote 300 permanent rows to the
+audit chain (`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` §4.1). The bucket is now keyed on the
+**bound** identity, which cannot be fabricated. Measured after, live, same script: 300 requests with
+a rotating claimed id → 60 × 200 and **240 × HTTP 429**, exactly bucket capacity. The related
+unbounded-bucket-growth issue was closed separately (`tests/test_ratelimit_eviction.py`).
+Consequence worth restating: the audit chain shows that *a record was not altered*. It now also
+establishes *which token produced it* — which is a claim about the caller, not about the content.
 
 **3. `kasa.db` is not fully encrypted at rest.**
 Three columns are encrypted with AES-256-GCM (per-cell nonce, AAD-bound):
@@ -287,10 +311,12 @@ call DPAPI anyway, so it adds little exposure
 (`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` §4.3). If you can show it *does* add
 exposure, that is a report worth sending.
 
-**6. Static-analysis backlog.** 13 Bandit MEDIUM findings were untriaged as of the
-2026-08-02 benchmark run, and the secret scan reported 16 unreviewed hits.
-`docs/SECURITY_BENCHMARK.md` records the run as **not release-ready**: 21 checks,
-18 PASS / 1 FAIL / 2 WARN.
+**6. Static-analysis backlog.** 13 Bandit MEDIUM findings are still untriaged — this is the only
+remaining amber item in the suite. The secret scan's 16 unreviewed hits were triaged with written
+reasons (`tools/security_bench/secret_allowlist.json`) and it now reports 0 unaudited.
+`docs/SECURITY_BENCHMARK.md`, commit `fc40b10` (2026-08-05): 21 checks, **20 PASS / 0 FAIL /
+1 WARN**. The verdict word it stamps is *release candidate*; see the section above on why that
+word is not the project's status.
 
 **7. Injected page content can plant a false durable memory (finding F-POISON).**
 The broker mediates *authority*, not *truth*. `browser` is auto-granted `events:write` at
@@ -503,16 +529,21 @@ kalktı. İkisi de `tests/test_browser_optin_gate.py` ile mühürlendi.
 - KASA v1'in tehdit modeli **"yerel süreç güvenilir"** varsayımına dayanır. Aynı kullanıcı
   bağlamındaki kötücül yazılım kapsam dışıdır; yerel-öncelikli tasarımlarda bu standarttır
   (`docs/THREAT_MODEL.md`, düşman sınıfı A).
-- **`agent_id` istemci-beyanlıdır (F-IMP bulgusu).** Kimlik token'a bağlı değil; yalnız
-  `"system"` rezerve (`src/mcp_server/server.py:63`), `browser` ise açılışta
-  `events:write` iznini otomatik alıyor (`src/mcp_server/server.py:81-84`). Ölçüldü:
-  token'ı olan biri `agent_id="browser"` diyerek bu yazma iznini devralabiliyor
-  (izole sunucuda `event_ingest` → HTTP 200). Ayrıntı:
-  `docs/MCP_CANLI_TEST_EYLEM_PLANI_2026-08-02.md` §F-IMP. Aynı kök neden hız sınırını da
-  deliyor: dönen kimlikle 150 istekte **0** adet 429, 300 istek audit zincirine 300 satır
-  yazdı (`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` §4.1). Sonuç açıkça söylenmeli:
-  zincir "bu kayıt değişmedi"yi gösterir, kimlik bağlanana kadar "bunu şu ajan yaptı"yı
-  göstermez.
+- **`agent_id` istemci-beyanlıydı (F-IMP bulgusu) — 2026-08-05'te KAPATILDI.** Kimlik artık
+  token'dan çözülüyor (`resolve_agent`, `src/mcp_server/server.py:240`); gövdedeki `agent_id`
+  yalnızca bir beyandır ve çelişirse 403 (`_bound_identity`, `src/mcp_server/server.py:309`).
+  Eskiden token'ı olan biri `agent_id="browser"` diyerek o yazma iznini devralabiliyordu
+  (izole sunucuda `event_ingest` → HTTP 200).
+  **Gerçek bir sunucuya karşı ölçüldü, 7/7** (`_orch/redteam/fimp_live_verify.py`): ölçülmüş
+  saldırı artık **403**, tanınmayan token **401**, iptal edilen token **401** — *ve* pozitif
+  kontrol de tutuyor: bağlı bir token kendisi olarak gerçek bir yazmayı **200** ile tamamlıyor.
+  Bu ikincisi rastgele bir ayrıntı değil: bu projede bir kez, kapının pozitif yönü tamamen
+  kırıkken test paketi yeşil yanmıştı. Aynı kök nedenin deldiği hız sınırı da kapandı: dönen
+  kimlikle 300 istek artık **240 adet 429** üretiyor (öncesinde 150 istekte **0**).
+  **Sınır açıkça:** kimlik *token*'a bağlıdır, gücü token gizliliği kadardır; vault dosyasını
+  okuyabilen aynı-OS saldırganı token üretebilir ve o sınıf tasarımla kapsam dışıdır. Kapanan
+  şey, **ağdan** atfın sahtelenmesidir. Zincir artık "bunu şu token yaptı"yı da gösterir —
+  ama "yazdığı şey doğru"yu göstermez; oraya F-POISON bakar.
 - **`kasa.db` at-rest tam şifreli DEĞİL** — yalnızca 3 kolon (`events.content`,
   `profile.value`, `audit.details`). Zaman damgaları, `profile.key`, `agent_id`, TTL ve
   hash-zinciri kolonları düz metin; sorgu/indeks/zincir bunlara bağlı. Kolon kolon ölçüm:
@@ -533,5 +564,8 @@ eklerseniz, o rapor değerlidir ve beklenir.
 **Ölçümle tuttuğu görülenler** (iddia değil, tarihli koşu okuması): yedi `AUTHZ-*`
 kontrolünün tamamı PASS, denetim zincirinin kurcalama ve silme tespiti PASS, `CRYPTO-ATREST`
 PASS, AAD bağı satır/kolon takasını bozuyor, sunucu varsayılan olarak `127.0.0.1`'e
-bağlanıyor. Kaynak: `docs/SECURITY_BENCHMARK.md` (2026-08-02 koşusu: 21 kontrol,
-18 PASS / 1 FAIL / 2 WARN, verdict **yayına hazır değil**).
+bağlanıyor. Kaynak: `docs/SECURITY_BENCHMARK.md` (2026-08-05 koşusu, commit `fc40b10`:
+21 kontrol, **20 PASS / 0 FAIL / 1 WARN**). Bastığı damga kelimesi *yayın-adayı*'dır;
+**bu kelime projenin durumu değildir** — dar bir takımda hiçbir kontrolün kalmadığı anlamına
+gelir, oysa F-POISON açık ve o takımda onu ölçen tek bir kontrol yoktur
+(`docs/SECURITY_BENCH_LIMITS.md`).

@@ -130,9 +130,30 @@ Yayımladığımız arşiv, özgünlük denetiminin çürüttüğü iddialar ta�
 AŞAMA 0  ✅ temiz (portlar boş, geçici vault'lar silindi)
 AŞAMA 1  ✅ tamam — B1/B2/B3 ölçüldü (B-STAGE-CAVEATS), C1 eser koşuldu ve doğrulandı
 AŞAMA 2  ✅ çözüldü — MemTxn okundu ve ÖLÇÜLDÜ (MEMTXN-GAP): Ordered PatchTest yükümüzü de KABUL ediyor; önceleme yok, komşu
-AŞAMA 3  ⬜ Aşama 1'den kalan kayıt düzeltmesi (KNOWLEDGE_ARCHIVE #11 → C2PA/Clark-Wilson atfı)
-AŞAMA 4  ⏸ sahip kararı bekliyor — A4 (p0xmazq), D1 (ad-uzayı politikası), D2 (push)
+AŞAMA 3  ✅ kayıt düzeltmesi — F-IMP senkronu + tezgah sayıları + atıf (aşağıya bak)
+AŞAMA 5  ✅ F-IMP canlı doğrulandı (7/7) ve dallar birleşti
+AŞAMA 4  ⏸ sahip kararı bekliyor — A4 (p0xmazq), D1 (ad-uzayı politikası), PR #2 birleştirme
 ```
+
+### AŞAMA 5 — 2026-08-05: yayımlanan kayıt gerçeğin GERİSİNDEYDİ
+
+Bu oturuma kadar aradığımız sessiz arıza hep aynı yöndeydi: *olduğundan iyi görünen*. Bu kez
+tersi çıktı ve aynı ölçüde bir kayıt hatasıdır.
+
+| Bulunan | Nasıl fark edildi | Ders |
+|---|---|---|
+| Kimlik bağlama kodda KURULU, ama README/SECURITY/THREAT_MODEL "kurulmadı" diyor | F-IMP grep'i | Belge de ölçülen bir şeydir; gerisinde kalması da hatadır |
+| `origin/main` düzeltmeyi HİÇ içermiyor — `tests/test_identity_binding.py` orada yok | `git cat-file -e origin/main:...` | Dalda yeşil olmak yayımlanmış olmak değildir |
+| PR #2 **ÇATIŞMALI** → düzeltme iki gündür kapıda bekliyor | `gh pr view 2` | "Commit edildi" ile "ulaştı" ayrı şeyler |
+| Tezgah SCAN-SECRETS hükmü **yazı-tura** — kendi çıktısını tarıyor | FAIL'in gerekçesi okundu | Rengi rastgele bir parmak izine bağlı kontrol ölçüm değildir |
+
+Çatışmaların 5'i satır-sonu farkıydı (içerik bayt bayt aynı) — **ölçüm JSON'ları el ile
+birleştirilmedi**; birleştirilseydi uydurma olurdu.
+
+Kapanan: F-IMP (7/7 canlı, `_orch/redteam/fimp_live_verify.py`), hız-sınırı baypası
+(300 istekte 240×429; öncesi 150'de 0), SCAN-SECRETS yazı-turası (testli),
+SCAN-BAK-HYGIENE (artık dosya arşive taşındı). Tezgah: 20 PASS / 0 FAIL / 1 WARN.
+Kalan tek sarı: 13 Bandit MEDIUM, triyaj edilmedi.
 
 **B-aşaması sonucu (2026-08-05, kasa-agent:8b, n=5):** B1 tohumlu-hafıza saldırıyı düşürmedi
 (5/5→5/5, sayı ayakta); B2 paraphrase 5/5 (kopyalama değil benimseme); B3 benign utility 5/5
@@ -142,7 +163,8 @@ AŞAMA 4  ⏸ sahip kararı bekliyor — A4 (p0xmazq), D1 (ad-uzayı politikası
 ENGELLENDİ + ad-uzayına uyan GEÇTİ, `errors: []`, kendi dürüst sınırlarını basıyor.
 
 **Koşan iş:** yok. **Bekleyen cron:** 17:09 5-saatlik kontrol (oturuma bağlı).
-**Push edilmemiş commit:** 10 (auto modda push YAPILMADI — sahip kararı).
+**Dal durumu:** `security/faz-0-3-owner-scope-hardening`, main birleştirildi, çatışma yok.
+**PR #2:** birleştirme sahibin kararı — 74 dosya, güvenlik yüzeyi; buton bizde değil.
 
 ---
 
