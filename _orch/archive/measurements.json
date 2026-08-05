@@ -1004,6 +1004,88 @@
         "Does not revise the separate distiller-model-only measurement (n=20, docs/MODEL_BASELINE_REPORT.md), which measures a different thing."
       ],
       "status": "ARTEFACT FIXED; finding unchanged and still OPEN"
+    },
+    {
+      "id": "DOOR-INVENTORY",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "authored_by_model": "claude-fable-5",
+      "verified_by_model": "claude-opus-5",
+      "title": "Every network route that can reach memory is enumerated programmatically and probed with three credential profiles",
+      "title_tr": "Hafizaya ulasabilen her ag rotasi programatik cikarildi ve uc kimlik-bilgisi profiliyle yoklandi",
+      "why": "The owner asked the right question: the vulnerability is not the existence of a gate, it is a door nobody counted. A hand-written route list cannot answer it - the route you forget to list is exactly the one being asked about. So the harness enumerates FastAPI app.routes at runtime and probes every one; a route added tomorrow is caught without editing the test.",
+      "harness": "_orch/redteam/door_inventory.py (real uvicorn, isolated throwaway vault via live_mcp_attack.start_isolated_server)",
+      "raw_result": "_orch/redteam/door_inventory_result.json",
+      "claim_under_test": "no network route that can reach the profile/events/audit tables is reachable without authentication",
+      "result": {
+        "routes_probed": 23,
+        "touching_vault": 9,
+        "classification": {
+          "SAHIP-OZEL": 8,
+          "STATIK/UI": 7,
+          "SAHIP-OZEL(islev-denenmedi)": 3,
+          "ACIK": 2,
+          "BROKERLI": 2,
+          "KAYNAK-YOK(404)": 1
+        },
+        "unauthenticated_2xx": 9,
+        "unauthenticated_2xx_that_touch_vault": 0,
+        "every_vault_route_no_token": 401,
+        "every_vault_route_agent_token": 403,
+        "errors": []
+      },
+      "controls": [
+        {
+          "type": "positive",
+          "check": "owner bearer -> GET /v1/dashboard/stats",
+          "expected": "2xx",
+          "actual": 200,
+          "meaning": "the owner surface is genuinely reachable, so the 403s above are refusals and not a broken server"
+        },
+        {
+          "type": "positive+negative pair",
+          "check": "bound agent token -> POST /v1/ingest event_ingest, before and after granting events:write",
+          "expected": "403 then 200",
+          "actual": "403 then 200",
+          "meaning": "the broker is actually consulting the permission table, measured in one run"
+        },
+        {
+          "type": "detector self-check",
+          "check": "does the owner-token leak sentinel ever fire",
+          "expected": "fires on /dashboard?k=<launch_nonce>, silent without the nonce",
+          "actual": "fired with nonce, silent without",
+          "meaning": "the 'no route leaked the owner token' result does not come from a detector that never fires"
+        },
+        {
+          "type": "detector self-check",
+          "check": "does the vault-dependency detector ever fire",
+          "expected": ">0 routes with get_vault",
+          "actual": "9 routes",
+          "meaning": "an EMPTY 'unauthenticated and vault-touching' list is a real negative, not a vacuous one"
+        }
+      ],
+      "reproduction": "Re-run independently after the authoring agent finished: 23 routes, ZERO differing rows, errors empty, 3/3 positive controls in both runs.",
+      "findings": [
+        "GET /openapi.json returns 200 unauthenticated and publishes the full route table and security schemes. No secret is leaked, but route discovery is free. Actor A4 is out of scope; whether A3 (a visited page) can read the response depends on CORS and WAS NOT MEASURED in this run.",
+        "GET / (health) returns 200 unauthenticated. No vault dependency.",
+        "GET /dashboard returns 200 unauthenticated, and the owner bearer IS embedded in the body when the process-local launch nonce is presented. This is the F-DASH design: the nonce is the credential for that path. Stated plainly because 'unauthenticated 200' and 'carries the owner token under a nonce' need to be read together."
+      ],
+      "design_fact_surfaced": "The owner bearer resolves to LEGACY_AGENT_ID, which holds no permissions - so even the OWNER gets 403 on /v1/execute_tool. The tool endpoints are brokered for every identity, with no owner bypass.",
+      "not_a_network_route": {
+        "path": "src/distill/engine.py",
+        "statement": "The distiller is NOT a network route. It runs in-process on its own sqlite connection, reads events and writes the profile, and does NOT pass through VaultTools/_check_permission.",
+        "tested": false,
+        "why_it_is_in_the_inventory": "It is not a defect, it is the intended ingestion path - but it means the permission broker is not the only authority over durable memory, and the one path it does not cover is exactly the one F-POISON walks through. An inventory that omitted it would be the uncounted door the owner asked about."
+      },
+      "limits": [
+        "HTTP surface only. In-process write paths (distiller), the owner CLI export path and direct sqlite access are out of this harness's scope.",
+        "One method per route (POST where present).",
+        "/v1/agent/* pointed at a closed Ollama port on purpose, so the owner result there is 503: the GATE was measured, the FUNCTION was not.",
+        "CORS was not measured, so the A3 reachability of /openapi.json is open.",
+        "A4 (same-OS) is out of scope by design.",
+        "Single host, loopback, two runs."
+      ],
+      "status": "MEASURED - claim holds on the HTTP surface; two ACIK routes found, neither touches memory"
     }
   ]
 }
