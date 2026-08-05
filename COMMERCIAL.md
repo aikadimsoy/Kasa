@@ -141,7 +141,7 @@ inventing one. Bring your use case and the terms get worked out from there.
 **Contact the author on GitHub: [@aikadimsoy](https://github.com/aikadimsoy).**
 
 For a licensing enquiry you would rather not discuss in the open, say so in a
-[Discussion](https://github.com/aikadimsoy/Kasa/discussions) without the commercial details and a
+[Discussion](https://github.com/aikadimsoy/kasa-mcp/discussions) without the commercial details and a
 private channel will be arranged from there — the same convention `SECURITY.md` uses for reports
 that cannot go through the advisory flow. Do not put pricing, deployment specifics or anything
 commercially sensitive in a public thread.
@@ -242,7 +242,7 @@ rakam da yoktur.
 
 **İletişim:** Yazara GitHub üzerinden ulaşın — [@aikadimsoy](https://github.com/aikadimsoy).
 Açık kanalda konuşmak istemediğiniz bir lisans görüşmesi için, ticari ayrıntıları yazmadan bir
-[Discussion](https://github.com/aikadimsoy/Kasa/discussions) açın; özel kanal oradan ayarlanır.
+[Discussion](https://github.com/aikadimsoy/kasa-mcp/discussions) açın; özel kanal oradan ayarlanır.
 Fiyat, dağıtım ayrıntısı veya ticari açıdan hassas hiçbir şeyi açık başlığa yazmayın.
 
 **Katkı ve telif:** Çift lisansın çalışabilmesi için işin her parçasının her iki lisans altında da
