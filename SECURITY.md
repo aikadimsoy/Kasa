@@ -279,9 +279,43 @@ unbounded-bucket-growth issue was closed separately (`tests/test_ratelimit_evict
 Consequence worth restating: the audit chain shows that *a record was not altered*. It now also
 establishes *which token produced it* — which is a claim about the caller, not about the content.
 
-**3. `kasa.db` is not fully encrypted at rest.**
-Three columns are encrypted with AES-256-GCM (per-cell nonce, AAD-bound):
-`events.content`, `profile.value`, `audit.details`. Everything else — timestamps,
+**3. `kasa.db` is not fully encrypted at rest — and the exception is worse than the rule
+(finding F-DISTILL-PLAINTEXT, measured 2026-08-05, OPEN).**
+
+Before the scoping below, one correction to a claim this file used to make without qualification.
+Three columns are *supposed* to be encrypted, and they are — **on the brokered write path**. They
+are not on the **distiller** path. The same secret, written two ways into an isolated vault:
+
+| Path | `profile.value` on disk |
+|---|---|
+| `VaultTools.profile_write()` | `K1:+4xIpuvtvr+nlTCo…` — encrypted |
+| `DistillEngine.run_batch()` | `{"text": "hunter2", "confidence": 0.95}` — **plaintext** |
+
+Reconnecting the vault does not encrypt it afterwards, and it survives `VACUUM`, so it is a live
+column and not deleted-page residue. Reproduce: `_orch/redteam/distill_crypto_bypass.py` (positive
+control included — without the brokered write showing ciphertext, "the file contains a string"
+would prove nothing).
+
+Encryption is not broken; **the scope of the claim was wider than the code**. The path that misses
+it is the one that consumes untrusted page text, and it is the same path that already bypasses the
+permission broker (`_orch/redteam/door_inventory.py` → `not_a_network_route`). So the distiller now
+has **two** measured bypasses of controls the brokered path applies: authorization and at-rest
+encryption.
+
+How it surfaced is worth recording, because nobody was looking: `tests/test_distill_injection.py`
+failed once in a full-suite run and passed in isolation. Chasing that flake led here. The injection
+test still passes — its assertions are about the key *name*, and the leak is in the *value*.
+
+**Not fixed.** Encrypting the distiller write is small in principle; existing plaintext rows would
+need a migration, which is an owner decision, and this file will not describe it as closed until
+that is done and measured.
+
+Reach, stated plainly: reading the vault file is adversary class A4 and out of scope by design.
+What this finding changes is that the plaintext content is **attacker-authored and arrives
+remotely** — a visited page decides what gets written unencrypted.
+
+The original scoping still holds for everything else. Three columns are encrypted with AES-256-GCM
+(per-cell nonce, AAD-bound): `events.content`, `profile.value`, `audit.details`. Everything else — timestamps,
 `profile.key`, `agent_id`, action names, TTL fields, hash-chain columns, the whole
 `permissions` table — is plaintext, because queries, indexes, TTL scans and the hash chain
 depend on it. The file header is `SQLite format 3`; the file opens, the content columns do
@@ -311,12 +345,29 @@ call DPAPI anyway, so it adds little exposure
 (`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md` §4.3). If you can show it *does* add
 exposure, that is a report worth sending.
 
-**6. Static-analysis backlog.** 13 Bandit MEDIUM findings are still untriaged — this is the only
-remaining amber item in the suite. The secret scan's 16 unreviewed hits were triaged with written
-reasons (`tools/security_bench/secret_allowlist.json`) and it now reports 0 unaudited.
-`docs/SECURITY_BENCHMARK.md`, commit `fc40b10` (2026-08-05): 21 checks, **20 PASS / 0 FAIL /
-1 WARN**. The verdict word it stamps is *release candidate*; see the section above on why that
-word is not the project's status.
+**6. Static-analysis backlog — triaged 2026-08-05, and read the residuals rather than the count.**
+The 13 Bandit MEDIUM findings were reviewed one at a time against the source; every verdict, with
+its file:line evidence, is in `tools/security_bench/bandit_triage.json`. Nine are false positives:
+four "SQL injection" sites interpolate only `?` placeholders with all values bound, one flags the
+string `"0.0.0.0"` inside a *comparison* in a WebView2 registry check, and four `urlopen` calls use
+hardcoded literal URLs — which matters most at `browser_window.py:1100`, because that request
+carries the bearer token and a hardcoded URL is what stops it being redirected. **Five are accepted
+residuals, not clean results:** `urlopen` calls whose URL comes from config or env
+(`OLLAMA_BASE`, `OLLAMA_URL`, `KASA_SERVER_URL`). Anyone who can set those already owns the process
+environment — adversary class A4, out of scope by design. That is a statement of scope, not of
+safety.
+
+"Parameterised, therefore safe" is a *claim*, and claims need measurements here, so the four SQL
+sites have a negative control: `tests/test_bandit_triage.py` drives the real `forget()` path with
+four SQL payloads and asserts the tables survive and unrelated rows are untouched — alongside a
+positive control proving `forget()` actually deletes, without which the negative tests would pass
+against a no-op.
+
+The suite now reads 21 checks, **21 PASS / 0 FAIL / 0 WARN** (`docs/SECURITY_BENCHMARK.md`,
+commit `5a703cd`). **A fully green suite is the most misleading state this project has been in**,
+and it is worth saying so on the same line as the number: finding F-POISON is open, the suite
+contains no check for it, and triage moved findings from *unreviewed* to *reasoned about* — not
+from *present* to *absent*.
 
 **7. Injected page content can plant a false durable memory (finding F-POISON).**
 The broker mediates *authority*, not *truth*. `browser` is auto-granted `events:write` at
@@ -578,7 +629,7 @@ eklerseniz, o rapor değerlidir ve beklenir.
 kontrolünün tamamı PASS, denetim zincirinin kurcalama ve silme tespiti PASS, `CRYPTO-ATREST`
 PASS, AAD bağı satır/kolon takasını bozuyor, sunucu varsayılan olarak `127.0.0.1`'e
 bağlanıyor. Kaynak: `docs/SECURITY_BENCHMARK.md` (2026-08-05 koşusu, commit `fc40b10`:
-21 kontrol, **20 PASS / 0 FAIL / 1 WARN**). Bastığı damga kelimesi *yayın-adayı*'dır;
+21 kontrol, **21 PASS / 0 FAIL / 0 WARN**). Bastığı damga kelimesi *yayın-adayı*'dır;
 **bu kelime projenin durumu değildir** — dar bir takımda hiçbir kontrolün kalmadığı anlamına
 gelir, oysa F-POISON açık ve o takımda onu ölçen tek bir kontrol yoktur
 (`docs/SECURITY_BENCH_LIMITS.md`).

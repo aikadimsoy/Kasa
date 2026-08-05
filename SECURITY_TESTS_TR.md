@@ -4,7 +4,7 @@ Bu belge, Kasa (Vault) sistemi üzerinde uygulanan ampirik güvenlik testlerinin
 
 > **Ölçüm damgası (2026-08-05).** Bu projenin kuralı: *ölçülene kadar mühürlenmez.* Aşağıdaki her
 > madde, dayandığı ölçümü (dosya:satır veya `docs/` damgası) yanında taşır; dayanağı olmayan iddia
-> yazılmaz. Güncel güvenlik tezgahı 21 kalemde **20 PASS · 0 FAIL · 1 WARN** okuyor
+> yazılmaz. Güncel güvenlik tezgahı 21 kalemde **21 PASS · 0 FAIL · 0 WARN** okuyor
 > (`docs/SECURITY_BENCHMARK.md`, commit `fc40b10`) ve *yayın-adayı* damgası basıyor. **Bu kelime
 > tezgâhın, projenin değil** — dar bir takımda hiçbir kontrolün kalmadığı anlamına gelir, oysa
 > F-POISON bulgusu açık ve o takımda onu ölçen kontrol yok (`docs/SECURITY_BENCH_LIMITS.md`).

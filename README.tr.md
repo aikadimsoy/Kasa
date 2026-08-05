@@ -15,7 +15,7 @@ Windows'ta Ajan Tabanlı Tarama için Egemen, Yerel-Öncelikli bir Hafıza Kasas
 > | | |
 > |---|---|
 > | Tümüyle yerel çalışır | kasa dosyası, anahtar ve izin kararları makineden hiç çıkmaz |
-> | *Belirli* alanları şifreler | 3 kolon, AES-256-GCM, AAD-bağlı — **veritabanının tamamı değil** |
+> | *Belirli* alanları şifreler — **broker yazma yolunda** | 3 kolon, AES-256-GCM, AAD-bağlı — veritabanının tamamı değil, **ve damıtıcı yolunda değil**: 2026-08-05 ölçüldü, damıtıcının yazdığı `profile.value` **düz metin** kalıyor (`_orch/redteam/distill_crypto_bypass.py`) |
 > | Araç yetkisini sıradan kodla sınırlar | deterministik aracı; model asla sınır değildir |
 > | Hash-zincirli denetim defteri tutar | kurcalama ve silme tespiti ölçümle PASS |
 > | Ajan kimliğini token'a bağlar | gerçek sunucuya karşı 7/7 kontrol, pozitif **ve** negatif — `_orch/redteam/fimp_live_verify.py` |
@@ -188,7 +188,7 @@ pytest -q
 ## Proje Durumu
 
 **Hâlâ yayına hazır değil — ama sebebi artık kalan bir kontrol değil.** Tezgah artık 21 kalemde
-**20 PASS · 0 FAIL · 1 WARN** kaydediyor (`docs/SECURITY_BENCHMARK.md`, commit `fc40b10`,
+**21 PASS · 0 FAIL · 0 WARN** kaydediyor (`docs/SECURITY_BENCHMARK.md`, commit `5a703cd`,
 2026-08-05) ve *yayın-adayı* damgası basıyor. **Bu kelime tezgâhın, projenin değil.** Anlamı şu:
 dar bir takımda hiçbir kontrol kalmıyor — oysa aşağıdaki F-POISON bulgusu açık ve o takımda
 KASA'nın karşısına kurulduğu düşmanı ölçen **tek bir kontrol yok**. Tezgahtan bir sayı
@@ -201,8 +201,15 @@ olarak ölçülene kadar yasaklar.
   + damıtma + denetim hash-zinciri. 7 `AUTHZ-*` kaleminin tamamı PASS (C5/C7/C8 ve `127.0.0.1`
   bağlanma denetimi dahil), 3 `AUDIT-*` zincir/kurcalama kalemi PASS, 5 `CRYPTO-*` kalemi PASS,
   2 `FUZZ-*` kalemi PASS, bağımlılık denetimi 0 açıklı bağımlılık raporluyor.
-- **Sarı ölçülen:** `SCAN-BANDIT` WARN — 13 orta bulgu, hâlâ triyaj edilmedi. Kalan sarı listesi
-  bundan ibaret; `SCAN-SECRETS` ve `SCAN-BAK-HYGIENE` artık geçiyor.
+- **Takım artık tamamen yeşil, ve asıl dikkatli olunacak an burası.** Sarı hiçbir şey kalmadı:
+  13 Bandit MEDIUM bulgusu kaynak okunarak tek tek incelendi, her birinin gerekçesi
+  `tools/security_bench/bandit_triage.json` içinde yazılı. Dördü SQL enjeksiyonu diye
+  işaretlenmişti; enterpole edilen tek şey `?` yer tutucuları olduğu için gerçek `forget()`
+  yolunu dört SQL yüküyle süren bir **negatif kontrol** yazıldı — tablolar ayakta kalıyor; ve
+  `forget()`'in kör bir no-op olmadığını gösteren pozitif kontrol de yanında
+  (`tests/test_bandit_triage.py`). Beşi ise URL'si config/env'den gelen `urlopen` çağrıları;
+  bu **"güvenli" değil** — düşman sınıfı A4, tasarımla kapsam dışı, ve temiz kâğıt olarak
+  değil **kabul edilen kalıntı** olarak kayda geçti.
 - **O takımdaki bir sayı yazı-turaydı ve bunu açıkça söylemek gerekiyor.** `SCAN-SECRETS`,
   tezgâhın *kendi* bir önceki raporunu tarıyor; o raporun `config_hash` parmak izi yapılandırma
   her değiştiğinde değişiyor. 2026-08-05'te ölçüldü: kod ve depo birebir aynıyken yalnızca bu

@@ -15,7 +15,7 @@ A Sovereign, Local-First Memory Vault for Agentic Browsing on Windows
 > | | |
 > |---|---|
 > | Runs entirely locally | vault file, key and permission decisions never leave the machine |
-> | Encrypts *specific* fields | 3 columns, AES-256-GCM, AAD-bound — **not** the whole database |
+> | Encrypts *specific* fields **on the brokered write path** | 3 columns, AES-256-GCM, AAD-bound — **not** the whole database, and **not** on the distiller path: measured 2026-08-05, `profile.value` written by the distiller lands in **plaintext** (`_orch/redteam/distill_crypto_bypass.py`) |
 > | Limits tool authority in ordinary code | deterministic broker; the model is never the boundary |
 > | Keeps a hash-chained audit ledger | tamper and deletion detection both measured PASS |
 > | Binds agent identity to the token | 7/7 live controls against a real server, positive **and** negative — `_orch/redteam/fimp_live_verify.py` |
@@ -189,7 +189,7 @@ pytest -q
 ## Project Status
 
 **Still not release-ready — and the reason is no longer a failing check.** The benchmark now
-records 21 checks, **20 PASS · 0 FAIL · 1 WARN** (`docs/SECURITY_BENCHMARK.md`, commit `fc40b10`,
+records 21 checks, **21 PASS · 0 FAIL · 0 WARN** (`docs/SECURITY_BENCHMARK.md`, commit `5a703cd`,
 2026-08-05) and stamps the word *release candidate*. **That word is the bench's, not the
 project's.** It means no check in a narrow suite currently fails — while finding F-POISON below is
 open and the suite has **no check at all** for the adversary this project is built against. Read
@@ -202,8 +202,15 @@ them until they are empirically measured.
   permissions + distillation + audit hash-chain. All 7 `AUTHZ-*` checks pass (including C5/C7/C8 and
   the `127.0.0.1` bind check), the 3 `AUDIT-*` chain/tamper checks pass, the 5 `CRYPTO-*` checks pass,
   both `FUZZ-*` checks pass, and the dependency audit reports 0 vulnerable dependencies.
-- **Measured amber:** `SCAN-BANDIT` WARN — 13 medium findings, still untriaged. That is the whole
-  remaining amber list; `SCAN-SECRETS` and `SCAN-BAK-HYGIENE` now pass.
+- **The suite is now entirely green, and that is the moment to be most careful.** Nothing amber
+  remains: the 13 Bandit MEDIUM findings were triaged one by one against the source, with the
+  reasoning for each written down in `tools/security_bench/bandit_triage.json`. Four were flagged
+  SQL-injection sites where the only thing interpolated is `?` placeholders — so a negative control
+  was written that drives the real `forget()` path with four SQL payloads and shows the tables
+  survive, plus a positive control proving `forget()` is not a silent no-op
+  (`tests/test_bandit_triage.py`). Five are `urlopen` sites whose URL comes from config or env,
+  which is **not** "safe" — it is adversary class A4, out of scope by design, and it is recorded as
+  an accepted residual rather than a clean bill.
 - **One number in that suite was a coin flip, and it is worth saying out loud.** `SCAN-SECRETS`
   scans the bench's *own* previous report, whose `config_hash` fingerprint changes every time the
   config does. Measured 2026-08-05: with identical code and repository, the value changing from

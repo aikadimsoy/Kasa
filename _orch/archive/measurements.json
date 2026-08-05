@@ -1160,6 +1160,185 @@
         "One machine, one platform."
       ],
       "status": "CLOSED"
+    },
+    {
+      "id": "BANDIT-TRIAGE",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "13 Bandit MEDIUM findings triaged against the source; four SQL sites given a live negative control",
+      "title_tr": "13 Bandit MEDIUM bulgusu kaynak okunarak incelendi; dort SQL noktasina canli negatif kontrol yazildi",
+      "why": "SCAN-BANDIT reported a raw count - 'Medium: 13' - which says nothing, because it does not distinguish a real defect from a pattern-match. A number nobody has looked behind is not a measurement.",
+      "families": {
+        "B608_sql_injection": {
+          "count": 4,
+          "verdict": "false positive",
+          "reason": "The only thing interpolated into the SQL string is '?' placeholders built from ','.join(['?'] * len(ids)); every value is a bound parameter. engine.py:242 additionally has an isinstance(id, int) guard immediately above it, and tools.py match_ids/delete_ids come from a prior query, so they are sqlite-issued integers.",
+          "sites": [
+            "src/distill/engine.py:242",
+            "src/distill/engine.py:275",
+            "src/mcp_server/tools.py:260",
+            "src/mcp_server/tools.py:393"
+          ]
+        },
+        "B104_bind_all_interfaces": {
+          "count": 1,
+          "verdict": "false positive",
+          "reason": "Nothing binds here. The line is 'str(data) not in (\"\", \"0.0.0.0\")' - a comparison against a value read from the registry during a WebView2 version check. B104 pattern-matches the literal wherever it appears. The real bind is 127.0.0.1 and AUTHZ-BIND measures it.",
+          "sites": [
+            "src/desktop/preflight.py:63"
+          ]
+        },
+        "B310_urlopen_permitted_schemes": {
+          "count": 8,
+          "verdict": "4 false positive, 4 accepted residual",
+          "false_positive_reason": "URL is a hardcoded literal, so the scheme cannot be changed. This matters most at browser_window.py:1100: that request carries the bearer token, and it is the hardcoded URL that prevents the token being sent somewhere else.",
+          "residual_reason": "URL comes from config/env (OLLAMA_BASE, OLLAMA_URL, KASA_SERVER_URL). Anyone who can set those already owns the process environment - adversary class A4, OUT OF SCOPE by design. This is a statement of SCOPE, not of safety, and is recorded as an accepted residual rather than a clean result.",
+          "sites_false_positive": [
+            "src/browser/browser_window.py:1108 (literal http://localhost:8000/v1/ingest)",
+            "src/browser/browser_window.py:1177 (literal http://localhost:11434/api/tags)",
+            "src/desktop/launch.py:127 (127.0.0.1 + own port)"
+          ],
+          "sites_residual": [
+            "src/agent/harness.py:61",
+            "src/agent/harness.py:87",
+            "src/distill/engine.py:183",
+            "src/distill/profile_enrich.py:86",
+            "src/mcp_adapter/proxy.py:136"
+          ]
+        }
+      },
+      "why_the_sql_family_got_a_live_test": "'Parameterised, therefore safe' is a CLAIM. In this project a claim requires a measurement, so the reasoning was not left as prose.",
+      "controls": [
+        {
+          "type": "negative",
+          "check": "VaultTools.forget() driven with 4 SQL payloads (';DROP TABLE events;--' etc.) through the real code path",
+          "expected": "tables survive, unrelated rows untouched",
+          "actual": "events/profile/audit/permissions all present; the unrelated profile row survived on every payload"
+        },
+        {
+          "type": "positive",
+          "check": "forget('user.profile.') on a populated vault",
+          "expected": "the matching row is deleted and only that one",
+          "actual": "matching row gone, out-of-scope row kept",
+          "meaning": "without this, all four negative tests would pass against a forget() that does nothing at all"
+        },
+        {
+          "type": "positive",
+          "check": "the real triage file against the 13 measured findings",
+          "expected": "0 untriaged",
+          "actual": "0 untriaged, 13 suppressed"
+        },
+        {
+          "type": "negative",
+          "check": "a THIRD B608 appears in an already-triaged file",
+          "expected": "surfaces as untriaged",
+          "actual": "surfaces",
+          "meaning": "the triage keys on (test_id, path, COUNT) precisely so it cannot become a blind spot; line numbers were rejected as a key because they shift on every edit and the triage would go stale by itself"
+        },
+        {
+          "type": "negative",
+          "check": "same test_id in a NEW file",
+          "expected": "not suppressed",
+          "actual": "not suppressed"
+        },
+        {
+          "type": "negative",
+          "check": "a HIGH severity finding",
+          "expected": "never touched by triage",
+          "actual": "not suppressed - triage is MEDIUM-only by construction"
+        },
+        {
+          "type": "negative",
+          "check": "unreadable triage file",
+          "expected": "fail-closed, everything untriaged",
+          "actual": "fail-closed"
+        }
+      ],
+      "test": "tests/test_bandit_triage.py - 10 tests",
+      "bench_after": {
+        "commit": "5a703cd",
+        "total": 21,
+        "PASS": 21,
+        "FAIL": 0,
+        "WARN": 0,
+        "exit_code": 0
+      },
+      "honest_note": "The suite is now entirely green and that is the most misleading state this project has been in. Triage moved 13 findings from UNREVIEWED to REASONED ABOUT - not from present to absent. Five accepted residuals are still residuals. F-POISON is open and this suite contains no check for it.",
+      "limits": [
+        "Triage is a hand-maintained file: a finding in a NEW file, or an extra finding in an already-triaged file, surfaces - but a wrong REASON in an existing entry is caught by nothing except a human rereading it.",
+        "The negative control covers the forget() path. The two engine.py B608 sites are the distiller's own id lists and were reasoned about, not driven by a test.",
+        "Bandit only sees what its rules encode; a clean bandit run is not a clean codebase."
+      ],
+      "status": "TRIAGED - 9 false positive, 4 accepted residual, 0 defects fixed because none were found"
+    },
+    {
+      "id": "F-DISTILL-PLAINTEXT",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "The distiller writes profile.value in plaintext; the brokered path encrypts it",
+      "title_tr": "Damitici profile.value'yu duz metin yaziyor; broker yolu sifreliyor",
+      "claim_that_was_wrong": "README and SECURITY.md stated without qualification that three columns are encrypted at rest with per-cell AES-256-GCM, and profile.value is one of them. True of the brokered write path. NOT true of the distiller path - which is how most values actually arrive.",
+      "measurement": {
+        "broker_path": {
+          "call": "VaultTools.profile_write()",
+          "on_disk": "K1:+4xIpuvtvr+nlTCo... (ciphertext)",
+          "plaintext_present": false
+        },
+        "distiller_path": {
+          "call": "DistillEngine.run_batch()",
+          "on_disk": "{\"text\": \"hunter2\", \"confidence\": 0.95}",
+          "plaintext_present": true
+        },
+        "after_vault_reconnect": {
+          "plaintext_present": true,
+          "meaning": "there is no late-encryption pass that repairs it"
+        },
+        "after_vacuum": {
+          "plaintext_present": true,
+          "meaning": "a LIVE column, not deleted-page residue"
+        },
+        "errors": []
+      },
+      "controls": [
+        {
+          "type": "positive",
+          "check": "brokered write of the same secret",
+          "expected": "ciphertext on disk",
+          "actual": "ciphertext",
+          "meaning": "without this, 'the file contains a string' would prove nothing about whether encryption works at all"
+        },
+        {
+          "type": "negative",
+          "check": "distiller write",
+          "expected": "ciphertext",
+          "actual": "PLAINTEXT"
+        },
+        {
+          "type": "negative",
+          "check": "reconnect the vault",
+          "expected": "late pass might encrypt",
+          "actual": "still plaintext"
+        },
+        {
+          "type": "liveness",
+          "check": "profile empty?",
+          "expected": "non-empty or the run proves nothing",
+          "actual": "non-empty",
+          "meaning": "an empty profile would mean the distiller committed nothing and neither result would mean anything"
+        }
+      ],
+      "harness": "_orch/redteam/distill_crypto_bypass.py",
+      "how_it_surfaced": "tests/test_distill_injection.py failed once in a full-suite run and passed in isolation - a stochastic security assertion. Chasing that flake led here. The injection test still passes: its assertions are about the KEY name, and the leak is in the VALUE. Nobody was looking for this.",
+      "connection_to_other_findings": "The distiller is the same path that does not go through the permission broker (DOOR-INVENTORY -> not_a_network_route). It now has TWO measured bypasses of controls the brokered path applies: authorization and at-rest encryption. And it is the path fed by untrusted page text.",
+      "what_this_is_NOT": "Not 'encryption is broken'. The primitive works, the brokered path uses it, the CRYPTO-ATREST bench check legitimately passes. The defect is that the CLAIM was written wider than the code.",
+      "reach": "Reading the vault file is adversary class A4 (same-OS), out of scope by design. What changes is that the plaintext content is ATTACKER-AUTHORED and arrives REMOTELY - a visited page decides what gets written unencrypted.",
+      "limits": [
+        "Only profile.value was measured. events.content and audit.details were NOT checked on the distiller path.",
+        "The distiller model is stochastic (the key it emits varies run to run); the ENCRYPTION result is not - it is a property of the write path.",
+        "Single machine, single model, small n on the model-dependent parts."
+      ],
+      "not_fixed_because": "Encrypting the distiller write is small in principle, but EXISTING plaintext rows need a migration decision. Owner call. Nothing will be described as closed until that is done and measured.",
+      "status": "OPEN - found and proved, not closed"
     }
   ]
 }

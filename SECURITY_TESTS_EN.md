@@ -5,7 +5,7 @@ This document contains the list of empirical security tests, testing methodologi
 > **Measurement stamp (2026-08-05).** This project's rule is: *nothing is sealed until it is measured.*
 > Every item below carries the measurement it rests on (file:line or a `docs/` stamp); a claim without
 > a measurement is not written at all. The current security benchmark reads 21 checks:
-> **20 PASS · 0 FAIL · 1 WARN** (`docs/SECURITY_BENCHMARK.md`, commit `fc40b10`) and stamps the word
+> **21 PASS · 0 FAIL · 0 WARN** (`docs/SECURITY_BENCHMARK.md`, commit `5a703cd`) and stamps the word
 > *release candidate*. **That word is the bench's, not the project's** — it means no check in a narrow
 > suite fails, while finding F-POISON is open and that suite contains no check for it
 > (`docs/SECURITY_BENCH_LIMITS.md`). Open findings and known limits are listed in
