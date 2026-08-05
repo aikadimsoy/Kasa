@@ -162,9 +162,48 @@ Kalan tek sarı: 13 Bandit MEDIUM, triyaj edilmedi.
 **C1 eseri:** `_orch/redteam/poison_reproduce.py` — izole vault'ta uçtan uca koşuldu, naif
 ENGELLENDİ + ad-uzayına uyan GEÇTİ, `errors: []`, kendi dürüst sınırlarını basıyor.
 
-**Koşan iş:** yok. **Bekleyen cron:** 17:09 5-saatlik kontrol (oturuma bağlı).
+**Koşan iş:** yok. **Push edilmemiş commit:** 0 (gerçek uzağa `ls-remote` ile soruldu).
 **Dal durumu:** `security/faz-0-3-owner-scope-hardening`, main birleştirildi, çatışma yok.
-**PR #2:** birleştirme sahibin kararı — 74 dosya, güvenlik yüzeyi; buton bizde değil.
+**PR #2:** birleştirme sahibin kararı — **78** dosya, güvenlik yüzeyi; buton bizde değil.
+
+> *Pano düzeltmesi 17:11:* burada "74 dosya" yazıyordu, gerçek sayı 78'di — günün
+> commit'leriyle büyümüş, pano güncellenmemişti. Küçük ama bu belgenin varlık sebebine
+> aykırı: durum bağlamda değil **dosyada** duracaksa, dosya bayat olmamalı.
+
+---
+
+## 5. Geri dönüp bakma / Retrospection — 2026-08-05
+
+Kural: **bir geri, iki ileri.** Her ilerlemeden sonra durup "bu neden oldu" diye sor.
+
+### Bugünkü üç arıza aynı aileden
+
+| # | Arıza | Yönü |
+|---|---|---|
+| 1 | Tezgahın `SCAN-SECRETS` hükmü, kendi önceki raporunun rastgele `config_hash`'ine bağlıydı | yazı-tura |
+| 2 | `poison_reproduce.py` stokastik bir sonucu var/yok diye raporluyordu | **kendi bulgumuzu çürütür gibi** |
+| 3 | Kontrol modülü çökerse `SKIP/info` yazılıyordu; hüküm süzgeci `ERROR`+high arıyor | sessizce temiz |
+
+**Ortak kök neden:** her üçünde de **hata yolu, güven veren bir durum yazıyordu.**
+`info`, `SKIP`, `BLOCKED`, `0 FAIL` — hepsi "sorun yok" gibi okunur. Arıza yolunun
+varsayılanı iyimserdi.
+
+**Ders (kodda kural haline getirildi):** bir `except` bloğu ya da bir varsayılan dal,
+*ölçemedim*'i **asla** *temiz* gibi yazamaz. Üç durum ayrı: **bulundu / bulunamadı /
+bakılamadı.** Üçüncüyü ikinciye katan her satır bir sahte-PASS üreticisidir.
+
+### İkinci ders: sözleşmesi olmayan rapor eksiğini göremez
+
+3 numaranın altında daha derin bir açık vardı: tezgahın **hangi kontrollerin koşması
+gerektiğine dair bir listesi yoktu**. 21 satır 15 olsa kimse fark etmezdi. Artık
+`EXPECTED_CHECK_IDS` var ve eksik olan her kimlik `ERROR/critical` olarak rapora giriyor.
+Yeni kontrol ekleyen kişi ID'yi oraya da yazmak zorunda — bu bir yük değil, kapının kendisi.
+
+### Üçüncü ders: ölçüm mantığı test edilemiyorsa test edilmez
+
+Hüküm mantığı `main()` içinde gömülüydü; sınamak için ~5 dakikalık, ağ bağımlı tam bir
+tezgah koşumu gerekiyordu. Pratikte hiç sınanmadı — sessiz-SKIP hatası tam bu yüzden yaşadı.
+`verdict()` ve `_coverage_gaps()` ayrıldı; artık 8 test 0.08 saniyede koşuyor.
 
 ---
 

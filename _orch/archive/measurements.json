@@ -904,13 +904,13 @@
       "finding": "tools/security_bench rewrites docs/security_bench_result.json on every run, and the NEXT run's detect-secrets pass scans that file. Line 9 holds meta.config_hash, a 12-char SHA-256 slice of the configuration. Whether that value trips the Hex High Entropy String heuristic is a property of the value, not of the code.",
       "evidence": {
         "run_A": {
-          "config_hash_scanned": "f8b97a921348",
+          "config_hash_scanned": "f8b9...1348",
           "SCAN-SECRETS": "FAIL",
           "detail": "1 unaudited secret: docs/security_bench_result.json:9 [Hex High Entropy String]",
           "verdict": "YAYINA HAZIR DEGIL (kritik acik)"
         },
         "run_B": {
-          "config_hash_scanned": "7ec93e4833a5",
+          "config_hash_scanned": "7ec9...33a5",
           "SCAN-SECRETS": "PASS",
           "detail": "0 unaudited (24 allowlisted suppressed)",
           "verdict": "YAYIN-ADAYI"
@@ -945,7 +945,7 @@
         "remaining_warn": "SCAN-BANDIT: 13 medium findings, untriaged",
         "note": "SCAN-BAK-HYGIENE also went green in the same run because the stray src/distill/engine.py.bak was moved into _bak_archive - a separate, unrelated change made in the same pass"
       },
-      "honest_note": "Run B's PASS is itself luck: 7ec93e4833a5 simply did not trip the threshold. The allowlist entry is what makes the outcome deterministic from now on, and it was NOT exercised by run B (suppressed count stayed at 24). That is why the guard has its own test rather than resting on a green run.",
+      "honest_note": "Run B's PASS is itself luck: 7ec9...33a5 simply did not trip the threshold. The allowlist entry is what makes the outcome deterministic from now on, and it was NOT exercised by run B (suppressed count stayed at 24). That is why the guard has its own test rather than resting on a green run.",
       "status": "CLOSED"
     },
     {
@@ -1086,6 +1086,80 @@
         "Single host, loopback, two runs."
       ],
       "status": "MEASURED - claim holds on the HTTP surface; two ACIK routes found, neither touches memory"
+    },
+    {
+      "id": "SECBENCH-SILENT-SKIP",
+      "date": "2026-08-05",
+      "level": "RAN-LIVE",
+      "title": "A crashed check module was reported as SKIP/info, so losing an entire category read as a clean run",
+      "title_tr": "Coken bir kontrol modulu SKIP/info diye raporlaniyordu; bir kategoriyi butunuyle kaybetmek temiz kosum gibi okunuyordu",
+      "surfaced_by": "The 13-agent repositioning sweep read the bench source while judging a proposal and flagged the mismatch. It was not found by running the bench - the bench cannot see this defect in itself, which is the point.",
+      "defect": {
+        "where": "tools/security_bench/run.py module-loader except block; tools/security_bench/checks/crypto.py except block",
+        "what": "The error path wrote status='SKIP', severity='info'. The verdict filter looks for status=='ERROR' with severity in (critical, high). So a check module that failed to import contributed NOTHING to the verdict: state PASS, exit code 0.",
+        "consequence": "'none of the seven AUTHZ checks ran' and 'all seven passed' produced the same screen and the same exit code. In crypto.py the same shape silently dropped four of five CRYPTO checks."
+      },
+      "deeper_defect": "Beneath it: the bench had no contract for WHICH checks must run. A check disappearing inside a module would take the row count from 21 to 15 with no error anywhere. A report that does not know a check is EXPECTED cannot notice it is MISSING.",
+      "fix": {
+        "1": "loader_error_row() now emits ERROR/critical - losing a category is not 'info', nothing in it was measured.",
+        "2": "crypto.py abort row is ERROR/critical for the same reason.",
+        "3": "EXPECTED_CHECK_IDS added as an explicit contract; _coverage_gaps() emits ERROR/critical for any expected id absent from the results, which turns the exit code to 3 (scope incomplete).",
+        "4": "verdict() extracted from main() so the logic is testable without a ~5 minute network-dependent full run. It never was tested before, which is why this lived."
+      },
+      "controls": [
+        {
+          "type": "positive",
+          "check": "complete clean result set",
+          "expected": "PASS / exit 0",
+          "actual": "PASS / exit 0",
+          "meaning": "the gate is not a blanket ERROR - a gate that flags everything passes every negative test and is useless"
+        },
+        {
+          "type": "positive",
+          "check": "an ADDITIONAL new check id appears",
+          "expected": "not an error",
+          "actual": "not an error"
+        },
+        {
+          "type": "negative",
+          "check": "AUTHZ module crashes entirely",
+          "expected": "UNVERIFIED / exit 3",
+          "actual": "UNVERIFIED / exit 3"
+        },
+        {
+          "type": "negative",
+          "check": "one check silently vanishes with NO loader row - the case the old code could not see at all",
+          "expected": "coverage gate catches it, UNVERIFIED / exit 3",
+          "actual": "UNVERIFIED / exit 3"
+        },
+        {
+          "type": "negative",
+          "check": "the OLD SKIP/info row shape, replayed",
+          "expected": "slips through as PASS / exit 0",
+          "actual": "PASS / exit 0",
+          "meaning": "regression anchor: this test documents the bug so a future revert is explained, not just red"
+        },
+        {
+          "type": "precedence",
+          "check": "a real FAIL alongside missing coverage",
+          "expected": "FAIL / exit 1, both listed",
+          "actual": "FAIL / exit 1, both listed",
+          "meaning": "finding a hole outranks failing to look, and neither erases the other in the report"
+        }
+      ],
+      "test": "tests/test_bench_coverage_gate.py - 8 tests, 0.08s",
+      "recursive_finding": {
+        "what_happened": "Writing THIS family of findings into the archive tripped the scanner. The next bench run went from 0 FAIL to 4 unaudited secrets - all of them our own documentation: two configuration fingerprints quoted as evidence, and a line whose KEY NAME contains the word 'secrets' because it records a check id.",
+        "why_it_is_recorded": "It is the third instance today of the same shape: an artefact of ours reporting something other than what it measured. Documenting a false positive created a false positive.",
+        "how_it_was_handled": "Deliberately NOT one blanket allowlist entry. Two different problems, two different treatments: the fingerprints are non-secret VALUES and were shortened to first4...last4 (the claim is 'the two values differed', full length is not needed, and a REAL high-entropy secret landing in the archive will still trip); the check id is a NAME and cannot be shortened without breaking it, so it is allowlisted for the Secret Keyword type ONLY. Hex and Base64 remain live on that file on purpose.",
+        "residual": "The archive is a growing file. A real secret pasted into an evidence field would still be caught by the entropy rules, but a secret shaped like a keyword would not."
+      },
+      "limits": [
+        "The coverage contract is a hand-maintained set. Adding a check without adding its id leaves that check unguarded - the gate protects against DISAPPEARANCE, not against never having existed.",
+        "verdict() and _coverage_gaps() are unit-tested; the full pipeline from a genuinely broken import through to the exit code was NOT run end to end, because deliberately breaking a module in the repo to prove it is a change we did not want to leave behind. The loader row shape IS tested directly.",
+        "One machine, one platform."
+      ],
+      "status": "CLOSED"
     }
   ]
 }

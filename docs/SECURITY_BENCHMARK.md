@@ -1,6 +1,6 @@
 # KASA Güvenlik Benchmark — Kanıt Raporu
-2026-08-05T13:11:48, Windows-11-10.0.26200-SP0, 3.14.5
-**Damga:** commit `fc40b10` · config-hash `7ec93e4833a5` · WebView2 `151.0.4129.59` · OS build `10.0.26200` · katman **base** · host `DESKTOP-ABPQV0G`
+2026-08-05T17:22:32, Windows-11-10.0.26200-SP0, 3.14.5
+**Damga:** commit `2c6e70c` · config-hash `7ec93e4833a5` · WebView2 `151.0.4129.59` · OS build `10.0.26200` · katman **base** · host `DESKTOP-ABPQV0G`
 ## 🟢 YAYIN-ADAYI
 | Total | PASS | FAIL | ERROR | WARN | SKIP |
 |-------|------|------|-------|------|------|
@@ -14,7 +14,7 @@
 | AUTHZ-C5 | valid token, agent_id='system', tool profile_read parameters {'scope':'user.name'} | ✅ PASS | critical | `Status code: 403` |
 | AUTHZ-C7 | valid token, agent_id='tester', tool_name='grant_permission' | ✅ PASS | high | `Status code: 403 (kimlik baglama reddi)` |
 | AUTHZ-C8 | valid token, agent_id='tester', tool_name='_check_permission' | ✅ PASS | high | `Status code: 403 (kimlik baglama reddi)` |
-| AUTHZ-DENY | valid token, agent_id='unauthz_340d85', tool profile_read parameters {'scope':'user.name'} | ✅ PASS | critical | `Status code: 403` |
+| AUTHZ-DENY | valid token, agent_id='unauthz_6f1652', tool profile_read parameters {'scope':'user.name'} | ✅ PASS | critical | `Status code: 403` |
 | AUTHZ-BIND | Static check on server binding host | ✅ PASS | high | `Default host: 127.0.0.1` |
 
 ## Crypto
@@ -38,7 +38,7 @@
 |----|--------|-------|-------|-------|
 | SCAN-BANDIT | Static Analysis with Bandit | ⚠️ WARN | high | `High: 0, Medium: 13; Found MEDIUM severity issues.` |
 | SCAN-PIPAUDIT | Dependency Audit with pip-audit | ✅ PASS | high | `Vulnerable dependencies: 0` |
-| SCAN-SECRETS | Secret Detection with Detect-Secrets (allowlist-suzulmus) | ✅ PASS | critical | `0 denetlenmemis secret (24 allowlist'li bastirildi; gerekce: secret_allowlist.json)` |
+| SCAN-SECRETS | Secret Detection with Detect-Secrets (allowlist-suzulmus) | ✅ PASS | critical | `0 denetlenmemis secret (26 allowlist'li bastirildi; gerekce: secret_allowlist.json)` |
 | SCAN-BAK-HYGIENE | No stray backups + bounded _bak_archive | ✅ PASS | medium | `No stray backups; _bak_archive bounded (24/200)` |
 
 ## Fuzz
