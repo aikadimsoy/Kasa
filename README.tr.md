@@ -29,8 +29,9 @@ Windows'ta Ajan Tabanlı Tarama için Egemen, Yerel-Öncelikli bir Hafıza Kasas
 > **bu kelime tezgâhın, projenin değil**: dar bir takımda hiçbir kontrolün kalmadığı anlamına
 > gelir, ve o takımda KASA'nın karşısına kurulduğu düşmanı ölçen tek bir kontrol yoktur.
 >
-> Kendi negatif sonuçlarımızı yayımlarız. Açık bulgular [`SECURITY.md`](SECURITY.md)'de,
-> başarısız ölçümler [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md)'de.
+> Kendi negatif sonuçlarımızı yayımlarız ve yukarıdaki her iddianın arkasında bir komut var.
+> **[`docs/REPRODUCE.md`](docs/REPRODUCE.md)** dizindir: her iddia için onu üreten komut ve o
+> komutun neyi *göstermediği*. Açık bulgular [`SECURITY.md`](SECURITY.md)'de.
 > Buradan değil, oradan başlayın.
 
 ## Sorun
@@ -65,11 +66,18 @@ KASA'nın mimarisi beş ana bileşenden oluşur:
 
 ## Güvenlik
 
-Bu depodaki her güvenlik iddiasının, dayandığı ölçümü adıyla göstermesi beklenir. Güncel kanıt
-raporu [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md) (21 kalem, her kalem için kanıt
-dizesi), sınırları açıkça yazılmış test-test ayrıntı
-[`SECURITY_TESTS_TR.md`](SECURITY_TESTS_TR.md), açık bulguları içeren bağımsız denetim ise
-[`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md`](docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md).
+Bu depodaki her güvenlik iddiasının, dayandığı ölçümü adıyla göstermesi beklenir.
+
+**[`docs/REPRODUCE.md`](docs/REPRODUCE.md) ile başlayın** — her iddiayı, onu kendi makinenizde
+yeniden üreten komutu ve o komutun neyi *göstermediğini* listeler. Ayrıca **ölçmediklerimizi** de
+adıyla yazar; bir kanıt dizininin genelde atladığı kısım tam olarak budur.
+
+Destekleyici belgeler: kanıt raporu
+[`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md) (21 kalem, her kalem için kanıt dizesi)
+— ondan bir sayı alıntılamadan önce
+[`docs/SECURITY_BENCH_LIMITS.md`](docs/SECURITY_BENCH_LIMITS.md) okunmalı; sınırları açıkça
+yazılmış test-test ayrıntı [`SECURITY_TESTS_TR.md`](SECURITY_TESTS_TR.md); açık bulguları içeren
+denetim [`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md`](docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md).
 
 - **Kırmızı takım bulguları — ne ölçüldü, ne hâlâ açık.** Her satır dayandığı kanıtı adıyla
   gösterir; hiçbiri "bu saldırı sınıfı çözüldü" demez.

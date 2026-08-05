@@ -30,9 +30,10 @@ A Sovereign, Local-First Memory Vault for Agentic Browsing on Windows
 > no check in a narrow suite fails, and that suite has no check at all for the adversary KASA is
 > built against.
 >
-> We publish our own negative results. The open findings are in
-> [`SECURITY.md`](SECURITY.md); what the benchmark cannot see is in
-> [`docs/SECURITY_BENCH_LIMITS.md`](docs/SECURITY_BENCH_LIMITS.md). Start there, not here.
+> We publish our own negative results, and every claim above has a command behind it.
+> **[`docs/REPRODUCE.md`](docs/REPRODUCE.md)** is the index: one row per claim, the command that
+> produces it, and what that command does *not* show. Open findings are in
+> [`SECURITY.md`](SECURITY.md). Start there, not here.
 
 ## The Problem
 
@@ -66,10 +67,17 @@ KASA's architecture comprises five key components:
 
 ## Security
 
-Every security claim in this repository is expected to name the measurement it rests on. The current
-evidence report is [`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md) (21 checks with
-per-check evidence strings), the per-test detail with explicit limits is
-[`SECURITY_TESTS_EN.md`](SECURITY_TESTS_EN.md), and an independent audit with open findings is
+Every security claim in this repository is expected to name the measurement it rests on.
+
+**Start with [`docs/REPRODUCE.md`](docs/REPRODUCE.md)** — it lists every claim, the command that
+reproduces it on your own machine, and what that command does *not* show. It also names what has
+**not** been measured, which is the part an index of evidence usually omits.
+
+Supporting material: the benchmark report is
+[`docs/SECURITY_BENCHMARK.md`](docs/SECURITY_BENCHMARK.md) (21 checks with per-check evidence
+strings) — read [`docs/SECURITY_BENCH_LIMITS.md`](docs/SECURITY_BENCH_LIMITS.md) before quoting a
+number from it; per-test detail with explicit limits is
+[`SECURITY_TESTS_EN.md`](SECURITY_TESTS_EN.md); the audit with open findings is
 [`docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md`](docs/KASA_DENETIM_VE_PROJEKSIYON_2026-08-01.md).
 
 - **Red-team findings — what was measured, and what is still open.** Each line names its evidence;

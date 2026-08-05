@@ -182,7 +182,8 @@
       "effect": "setting KASA_MCP_AGENT_ID to any value other than the legacy identity yields 403 'agent_id token'a bagli kimlikle uyusmuyor'. Additionally, require_owner() compares against the same _BEARER_TOKEN, so the credential in the adapter process is sufficient for owner-only surfaces (/v1/dashboard/*, /v1/agent/*, /v1/terms/*).",
       "docstring_conflict": "the adapter docstring states it 'holds NO privileged path into the vault' - true of its code paths, false of its credential",
       "proposed_structural_fix": "accept an agent-bound token (agent_tokens table, already implemented, CLI-supported via issue-token) through an env var, so the MCP surface runs least-privilege instead of as owner",
-      "status": "OPEN"
+      "status": "SUPERSEDED - closed by F-MCP-OWNER-BEARER-FIX (2026-08-05)",
+      "superseded_by": "F-MCP-OWNER-BEARER-FIX"
     },
     {
       "id": "MCP-TEST-COVERAGE",
