@@ -127,15 +127,22 @@ Yayımladığımız arşiv, özgünlük denetiminin çürüttüğü iddialar ta�
 ## 4. Şu anki durum / Current state
 
 ```
-AŞAMA 0  ✅ temiz
-AŞAMA 1  ⬜ başlanmadı — B1, B2, B3, C1 (koşulsuz, hemen başlanabilir)
-AŞAMA 2  🔴 tıkalı — ajan 3 kez düştü, kendim okuyacağım
-AŞAMA 3  ⬜ Aşama 1'i bekliyor
-AŞAMA 4  ⏸ sahip kararı bekliyor (A4 cevapsız)
+AŞAMA 0  ✅ temiz (portlar boş, geçici vault'lar silindi)
+AŞAMA 1  ✅ tamam — B1/B2/B3 ölçüldü (B-STAGE-CAVEATS), C1 eser koşuldu ve doğrulandı
+AŞAMA 2  ✅ çözüldü — MemTxn okundu ve ÖLÇÜLDÜ (MEMTXN-GAP): Ordered PatchTest yükümüzü de KABUL ediyor; önceleme yok, komşu
+AŞAMA 3  ⬜ Aşama 1'den kalan kayıt düzeltmesi (KNOWLEDGE_ARCHIVE #11 → C2PA/Clark-Wilson atfı)
+AŞAMA 4  ⏸ sahip kararı bekliyor — A4 (p0xmazq), D1 (ad-uzayı politikası), D2 (push)
 ```
 
-**Koşan iş:** yok.
-**Push edilmemiş commit:** 6.
+**B-aşaması sonucu (2026-08-05, kasa-agent:8b, n=5):** B1 tohumlu-hafıza saldırıyı düşürmedi
+(5/5→5/5, sayı ayakta); B2 paraphrase 5/5 (kopyalama değil benimseme); B3 benign utility 5/5
+(çalışma noktası var). Dürüst sınır: tek model, tek tohum boyutu, damıtıcı modeli.
+
+**C1 eseri:** `_orch/redteam/poison_reproduce.py` — izole vault'ta uçtan uca koşuldu, naif
+ENGELLENDİ + ad-uzayına uyan GEÇTİ, `errors: []`, kendi dürüst sınırlarını basıyor.
+
+**Koşan iş:** yok. **Bekleyen cron:** 17:09 5-saatlik kontrol (oturuma bağlı).
+**Push edilmemiş commit:** 10 (auto modda push YAPILMADI — sahip kararı).
 
 ---
 
