@@ -570,7 +570,7 @@ Each line below cost a measurement. / Aşağıdaki her satır bir ölçüme mal 
 
 | ID | Item | Level | Status |
 |---|---|---|---|
-| **F-POISON** | A namespace-aware attacker writes a false durable fact through every deterministic gate (§3.3) | `RAN-LIVE` | **OPEN — no structural fix.** Decision pending: document as a known limit / enforce trust-class taint / quarantine facts derived solely from untrusted sources. Enforcing taint may disable the product, since untrusted browsing is the only input. |
+| **F-POISON** | A namespace-aware attacker writes a false durable fact through every deterministic gate (§3.3) | `RAN-LIVE` | **OPEN — no structural fix.** Decision pending, and one option is now measured out: **(a)** document as a known limit · **(b)** enforce trust-class taint — *would disable the product, since untrusted browsing is the only input; CaMeL 77%/84% and Louck's τ=0 → utility 0% already price this* · **(c)** quarantine untrusted-derived facts for owner review. **Measured 2026-08-05 (`MEMTXN-GAP`): a MemTxn-style source-support check does NOT close this** — its Ordered PatchTest is a structural ordered-subsequence test, and our payload passes it because the injected note contains the fabricated claim verbatim. So "adopt the published defence" is not by itself an answer. |
 | — | Namespace allow-list is public, so the rules that stop the naive attack are readable (§3.3) | `RAN-LIVE` | OPEN — same decision |
 | F-MCP-OWNER-BEARER | Adapter carried the owner credential (§2.4) | `RAN-LIVE` | **CLOSED** — agent-bound tokens; residual: owner fallback still permitted |
 | — | Zero test coverage on the MCP SDK wiring (§2.6) | `RAN-LIVE` | **CLOSED** — `tests/test_mcp_adapter_wiring.py` |

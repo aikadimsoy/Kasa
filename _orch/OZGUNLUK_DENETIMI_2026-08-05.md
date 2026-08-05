@@ -170,7 +170,13 @@ yapmadık.
 
 ## 3. Three primary sources, hand-verified / Elle doğrulanan üç birincil kaynak
 
-### 3.1 MemTxn — preempts us / bizi önceliyor
+### 3.1 MemTxn — adjacent, NOT preempting / komşu, ÖNCELEMİYOR
+
+> **Amended 2026-08-05 after measurement.** This section first read *"preempts us"*. Measuring the
+> mechanism instead of trusting its abstract changed the conclusion. The original reasoning is kept
+> below; the correction follows it.
+> **Ölçümden sonra düzeltildi.** Bu bölüm önce *"bizi önceliyor"* diyordu. Mekanizmayı özetine
+> güvenmek yerine ölçmek sonucu değiştirdi.
 
 arXiv:2607.27834 · Cui, Tang, Yao, Meng, Ma, Jia · **2026-07-30** (six days before our exchange)
 
@@ -378,8 +384,15 @@ avladığımız hatanın ta kendisi olur: bildiğimizle uyuşmayan bir kayıt.
 
 ### 7.3 Owner decisions / Sahip kararları
 
-- **A4** — is the r/mcp comment `p0xmazq` (2026-07-31, *"The auth succeeds. The call succeeds. The
-  emptiness is the lie."*) ours? If it is, it cannot be cited as third-party prior art.
+- **A4 — resolved conservatively, pending confirmation.** The r/mcp comment `p0xmazq`
+  (2026-07-31, *"The auth succeeds. The call succeeds. The emptiness is the lie."*) was flagged
+  by the completeness critic as stylistically close to our own house voice. Authorship is
+  **unconfirmed**. Until the owner confirms it is *not* ours, it is **struck from the evidence
+  base and must not be cited as third-party prior art** — citing our own words back as
+  independent corroboration would be misrepresentation, and the refutation does not depend on it
+  (MINJA alone is sufficient). No claim in this document rests on it.
+  *Yazarlığı doğrulanmadı; sahibi "bizim değil" diyene kadar kanıt tabanından ÇIKARILDI. Kendi
+  sözümüzü bağımsız teyit gibi göstermek yanlış beyan olurdu ve çürütme buna dayanmıyor.*
 - **D1** — namespace bypass: document as a known limit / implement MemTxn-style support checking /
   quarantine untrusted-derived facts. **Depends on §3.1.**
 - **D2** — push the pending commits?
