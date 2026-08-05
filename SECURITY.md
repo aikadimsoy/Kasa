@@ -292,6 +292,71 @@ exposure, that is a report worth sending.
 `docs/SECURITY_BENCHMARK.md` records the run as **not release-ready**: 21 checks,
 18 PASS / 1 FAIL / 2 WARN.
 
+**7. Injected page content can plant a false durable memory (finding F-POISON).**
+The broker mediates *authority*, not *truth*. `browser` is auto-granted `events:write` at
+startup (`src/mcp_server/server.py:81-84`), so a distiller acting on attacker-authored page
+text writes with a permission that is legitimately held — every authorization check passes
+and the audit chain records a valid entry. Measured 2026-08-04 with
+`_orch/redteam/indirect_variant_probe.py` (probe A8, five runs per configuration): a note
+embedded in an ordinary browsing event instructed the distiller to emit a profile fact that
+the event did not support. **All four configurations complied on all five runs — 20/20** —
+emitting the attacker's key with `confidence: 1.0`, in one case alongside a genuine fact so
+the fabricated one is less conspicuous. Evidence:
+`_orch/redteam/indirect_variant_result.json`; discussion in
+[`docs/MODEL_BASELINE_REPORT.md`](docs/MODEL_BASELINE_REPORT.md).
+Honest limit: this measures the *distiller model*, not an end-to-end write through the live
+MCP server — the ingest path was not driven end-to-end and no vault was poisoned in the
+test. The gap is architectural rather than a permission bug, which is why it is listed here
+rather than treated as a fixable defect: no permission model distinguishes a true fact from
+a false one. Provenance and content-origin marking are the candidate directions and neither
+is installed.
+
+**8. The MCP adapter runs as the owner (finding F-MCP-OWNER-BEARER).**
+`src/mcp_adapter/proxy.py` resolves the bearer **only** from `kasa.toml`. There is no
+environment override for the token — `KASA_SERVER_URL` and `KASA_MCP_AGENT_ID` exist, but no
+bearer override — so the adapter can only ever present the **owner's** credential, and identity
+always resolves to `LEGACY_AGENT_ID`. Two consequences, both measured live on 2026-08-05
+against an isolated vault. First, `KASA_MCP_AGENT_ID` is **effectively inert**: any value other
+than the legacy identity returns `403 "agent_id token'a bağlı kimlikle uyuşmuyor."` Second, and
+more seriously, `require_owner()` (`src/mcp_server/server.py:297`) compares the presented
+credential against that same `_BEARER_TOKEN`, so the secret held by the adapter process is
+sufficient for the **owner-only** surfaces (`/v1/dashboard/*`, `/v1/agent/*`, `/v1/terms/*`).
+The adapter's own docstring states it *"holds NO privileged path into the vault"* — true of its
+**code paths**, false of its **credential**. The structural fix is to let the adapter present an
+**agent-bound** token (the `agent_tokens` mechanism already exists and is exposed by
+`tools/grant_agent_scope.py issue-token`), so the MCP surface can run least-privilege instead of
+as owner. **Not fixed.**
+
+Two related defects found in the same pass **were** fixed, and are recorded because they mean
+the MCP surface was non-functional rather than merely unverified. `requirements.txt` declared
+`mcp>=1.2` with no upper bound; the SDK's 2.0.0 release removed `mcp.server.fastmcp`, so a
+clean install could not import the adapter at all (now pinned `<2`). And the adapter read
+`bearer_token` straight from config without unwrapping it, sending the **DPAPI-wrapped** 390-character
+value where the server expects the 43-character plaintext — every call returned `HTTP 401`
+(fixed by a single shared resolver, `src/config.py :: resolve_bearer_token`). Neither was caught
+by the test suite, because `tests/test_mcp_adapter.py` imports only the SDK-free proxy core and
+monkeypatches `urlopen`: **coverage of the layer that actually speaks MCP is zero.** Protocol
+conformance is now `RAN-LIVE` — MCP Inspector `tools/list` and `tools/call`, with an
+unauthorized call correctly refused and surfaced as `isError: true`. Full account:
+[`docs/KNOWLEDGE_ARCHIVE.md`](docs/KNOWLEDGE_ARCHIVE.md) §2.
+
+### Before quoting a benchmark number, read its limits
+
+An adversarial audit of `tools/security_bench/` on 2026-08-04 found that the suite was
+producing **false passes**: the bench never set `KASA_ALLOWED_HOSTS`, so the G2 host guard
+rejected every request with HTTP 400 before any authorization code ran — and checks whose
+predicate is `status != 200` reported PASS with the permission broker dormant. Measured, not
+inferred: 3 of 3 representative requests returned 400 under bench conditions. It also found
+checks that cannot fail (`CRYPTO-DPAPI`), checks that inspect code the product does not use
+(`AUTHZ-BIND`), audit checks that model an out-of-scope adversary without the signing key
+production uses, an undetected tail-deletion of the audit chain, and **no check at all** for
+injected page content — the adversary this project is built against.
+
+The suite has been fixed where it was fixable, and after the fixes its verdict word reads
+*release candidate*. **That word is not the project's status.** It means no check in a narrow
+suite currently fails, while finding F-POISON above is open and untested by it. Full account:
+[`docs/SECURITY_BENCH_LIMITS.md`](docs/SECURITY_BENCH_LIMITS.md).
+
 ### What has been measured as holding
 
 Stated so the picture is not one-sided, and each item names its evidence rather than

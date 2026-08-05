@@ -196,6 +196,26 @@ measured*, so labels such as "hardened", "enterprise-grade" or "production-ready
 Test-by-test detail, including what each claim does *not* prove, is in
 [`SECURITY_TESTS_EN.md`](SECURITY_TESTS_EN.md).
 
+## Contact
+
+All project contact runs through GitHub. There is deliberately no e-mail address: keeping the
+conversation on the repository means it stays public, attributable and searchable by the next
+person with the same question, and it does not require the maintainer to publish an address that
+would then be permanently indexed.
+
+| What you have | Where it goes |
+|---|---|
+| A security vulnerability | **Security tab → Report a vulnerability** (private advisory). Read the known-gaps list in [`SECURITY.md`](SECURITY.md) first — it will tell you whether the finding is already documented. |
+| A question, an idea, a critique of the architecture or the measurements | [Discussions](https://github.com/aikadimsoy/kasa-mcp/discussions) |
+| A reproducible bug that is not security-relevant | [Issues](https://github.com/aikadimsoy/kasa-mcp/issues) |
+| A patch | A pull request. Note the dual licence below before you send one. |
+
+Please do **not** open a public issue, pull request or discussion for a security-relevant finding
+before it has been triaged.
+
+This is a research preview maintained by one person. Expect considered replies rather than fast
+ones, and expect "we measured that and it failed" to be a normal answer.
+
 ## License
 
 KASA is **dual-licensed**:
@@ -206,3 +226,8 @@ KASA is **dual-licensed**:
   derivative work under the AGPL. Terms: [`COMMERCIAL.md`](COMMERCIAL.md).
 
 Attribution to the author stays with the project under both options.
+
+---
+
+**KASA** — a sovereign, local-first memory vault for agentic browsing.
+Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/kasa-mcp>

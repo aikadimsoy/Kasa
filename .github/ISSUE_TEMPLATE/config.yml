@@ -1,0 +1,19 @@
+# Issue-chooser configuration: routes people to the right channel before they open an issue.
+#
+# TR-NOT (ogretici): Bu dosya, "New issue" ekraninda gorunen secenekleri yonetir.
+#   blank_issues_enabled: false -> bos issue acilamaz; herkes ya bir sablon secer ya da
+#   asagidaki baglantilardan dogru kanala gider. Amac trafigi kesmek degil, GUVENLIK
+#   bulgusunun yanlislikla ACIK issue olarak acilmasini onlemek (SECURITY.md'nin kurali).
+#   Baglanti sirasi bilerek boyle: once ozel guvenlik kanali, sonra tartisma.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability (private)
+    url: https://github.com/aikadimsoy/kasa-mcp/security/advisories/new
+    about: >-
+      Report privately. Please do not open a public issue for a security finding.
+      Read the known-gaps list in SECURITY.md first — it may already be documented.
+  - name: Question, idea or critique
+    url: https://github.com/aikadimsoy/kasa-mcp/discussions
+    about: >-
+      Architecture, threat model, measurements, or "why does it do X" — Discussions
+      is the right place. Critique of our own published results is welcome.
