@@ -1,20 +1,20 @@
 {
   "meta": {
-    "date": "2026-08-02T16:12:54",
+    "date": "2026-08-04T21:45:39",
     "os": "Windows-11-10.0.26200-SP0",
     "os_build": "10.0.26200",
     "python": "3.14.5",
-    "host": "host-redakte",
-    "commit": "2dfda9e",
+    "host": "DESKTOP-ABPQV0G",
+    "commit": "a77e3f7",
     "config_hash": "f8b97a921348",
     "webview2": "150.0.4078.105",
     "tier": "base"
   },
-  "verdict": "YAYINA HAZIR DEĞİL (kritik açık)",
+  "verdict": "YAYIN-ADAYI",
   "counts": {
     "total": 21,
-    "PASS": 18,
-    "FAIL": 1,
+    "PASS": 19,
+    "FAIL": 0,
     "ERROR": 0,
     "WARN": 2,
     "SKIP": 0
@@ -50,7 +50,7 @@
       "title": "valid token, agent_id='tester', tool_name='grant_permission'",
       "status": "PASS",
       "severity": "high",
-      "evidence": "Status code: 404"
+      "evidence": "Status code: 403 (kimlik baglama reddi)"
     },
     {
       "id": "AUTHZ-C8",
@@ -58,12 +58,12 @@
       "title": "valid token, agent_id='tester', tool_name='_check_permission'",
       "status": "PASS",
       "severity": "high",
-      "evidence": "Status code: 404"
+      "evidence": "Status code: 403 (kimlik baglama reddi)"
     },
     {
       "id": "AUTHZ-DENY",
       "category": "authz",
-      "title": "valid token, agent_id='unauthz_513004', tool profile_read parameters {'scope':'user.name'}",
+      "title": "valid token, agent_id='unauthz_3089a5', tool profile_read parameters {'scope':'user.name'}",
       "status": "PASS",
       "severity": "critical",
       "evidence": "Status code: 403"
@@ -109,7 +109,7 @@
       "title": "Prove vault crypto properties (At Rest)",
       "status": "PASS",
       "severity": "critical",
-      "evidence": "canary absent from kasa.db + yan dosyalar (1 dosya, 57344 bytes; app-layer AES-GCM)",
+      "evidence": "canary absent from kasa.db + yan dosyalar (1 dosya, 81920 bytes; app-layer AES-GCM)",
       "remediation": ""
     },
     {
@@ -170,9 +170,9 @@
       "id": "SCAN-SECRETS",
       "category": "scan",
       "title": "Secret Detection with Detect-Secrets (allowlist-suzulmus)",
-      "status": "FAIL",
+      "status": "PASS",
       "severity": "critical",
-      "evidence": "16 denetlenmemis secret (15 allowlist'li bastirildi): kasa.toml:4 [Base64 High Entropy String]; tests/test_agent_bridge.py:27 [AWS Access Key]; tests/test_agent_bridge.py:28 [Base64 High Entropy String]",
+      "evidence": "0 denetlenmemis secret (24 allowlist'li bastirildi; gerekce: secret_allowlist.json)",
       "remediation": "bearer_token: owner-only ACL uygulandi; kalan -> rotasyon + DPAPI-wrap/at-rest (owner-gated). Yeni bulgu gercekse kaynaktan kaldir, fixture/FP ise gerekceyle secret_allowlist.json'a ekle."
     },
     {
