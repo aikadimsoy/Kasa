@@ -8,12 +8,12 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability (private)
-    url: https://github.com/aikadimsoy/Kasa/security/advisories/new
+    url: https://github.com/aikadimsoy/kasa-mcp/security/advisories/new
     about: >-
       Report privately. Please do not open a public issue for a security finding.
       Read the known-gaps list in SECURITY.md first — it may already be documented.
   - name: Question, idea or critique
-    url: https://github.com/aikadimsoy/Kasa/discussions
+    url: https://github.com/aikadimsoy/kasa-mcp/discussions
     about: >-
       Architecture, threat model, measurements, or "why does it do X" — Discussions
       is the right place. Critique of our own published results is welcome.
