@@ -123,4 +123,4 @@ been updated to accept `(403, 404)`. They have now been aligned, and the check r
 ---
 
 **KASA** — a sovereign, local-first memory vault for agentic browsing.
-Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/Kasa>
+Author: [@aikadimsoy](https://github.com/aikadimsoy) · Repository: <https://github.com/aikadimsoy/kasa-mcp>
